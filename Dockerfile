@@ -1,4 +1,4 @@
-FROM ghcr.io/intersectmbo/cardano-node:10.1.3
+FROM ghcr.io/intersectmbo/cardano-node:10.1.4
 
 # Define build-time variables
 ARG CARDANO_NODE_NETWORK_ID
