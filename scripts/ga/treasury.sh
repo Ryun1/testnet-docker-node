@@ -52,6 +52,7 @@ container_cli conway governance action create-treasury-withdrawal \
   --funds-receiving-stake-verification-key-file $keys_dir/stake.vkey \
   --transfer $LOVELACE_AMOUNT \
   --constitution-script-hash $SCRIPT_HASH \
+  --check-anchor-data \
   --out-file $txs_dir/treasury.action
 
 echo "Building the transaction."

@@ -43,6 +43,7 @@ container_cli conway governance action create-hardfork \
   --protocol-minor-version 0 \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
+  --check-anchor-data \
   --out-file $txs_dir/hardfork.action
 
 echo "Building transaction"

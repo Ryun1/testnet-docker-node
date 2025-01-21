@@ -60,6 +60,7 @@ container_cli conway transaction build \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
  --proposal-file $txs_dir/new-constitution.action \
  --change-address "$(cat $keys_dir/payment.addr)" \
+ --check-anchor-data \
  --out-file $txs_dir/new-constitution-action-tx.unsigned
 
 echo "Signing transaction"

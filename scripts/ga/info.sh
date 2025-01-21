@@ -2,8 +2,8 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-11-19-infohf/metadata.jsonld"
-METADATA_HASH="93106d082a93e94df5aff74f678438bae3a647dac63465fbfcde6a3058f41a1e"
+METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/secp256r1.jsonld"
+METADATA_HASH="40375637aadfdea454726d5f2692b4a940a4d2f2213739a40f9c2560c7bc4239"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -38,6 +38,7 @@ container_cli conway governance action create-info \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url $METADATA_URL \
   --anchor-data-hash $METADATA_HASH \
+  --check-anchor-data \
   --out-file $txs_dir/info.action
 
 echo "Building transaction"
