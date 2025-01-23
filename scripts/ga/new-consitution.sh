@@ -46,6 +46,7 @@ container_cli conway governance action create-constitution \
   --anchor-data-hash "$METADATA_HASH" \
   --constitution-url "$NEW_CONSTITUTION_ANCHOR_URL" \
   --constitution-hash "$NEW_CONSTITUTION_ANCHOR_HASH" \
+  --check-constitution-hash \
   --constitution-script-hash "$NEW_CONSTITUTION_SCRIPT_HASH" \
   --out-file $txs_dir/new-constitution.action
 
