@@ -8,6 +8,9 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="ab901c3aeeca631ee5c70147a558fbf191a4af245d8ca001e845d8569d7c38f9"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Set IPFS gateway incase anchor is using IPFS
+export IPFS_GATEWAY_URI="https://ipfs.io/"
+
 # Define directories
 keys_dir="./keys"
 txs_dir="$txs_dir/ga"
@@ -39,6 +42,7 @@ container_cli conway governance action create-no-confidence \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
+  --check-anchor-data \
   --out-file $txs_dir/no-confidence.action
 
   # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
@@ -53,7 +57,6 @@ container_cli conway transaction build \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
  --proposal-file $txs_dir/no-confidence.action \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --check-anchor-data \
  --out-file $txs_dir/no-confidence-action-tx.unsigned
 
 echo "Signing transaction"
