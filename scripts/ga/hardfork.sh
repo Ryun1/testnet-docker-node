@@ -8,6 +8,9 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="8a1bd37caa6b914a8b569adb63a0f41d8f159c110dc5c8409118a3f087fffb43"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Set IPFS gateway incase anchor is using IPFS
+export IPFS_GATEWAY_URI="https://ipfs.io/"
+
 # Define directories
 keys_dir="./keys"
 txs_dir="./txs/ga"
@@ -39,11 +42,11 @@ container_cli conway governance action create-hardfork \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
+  --check-anchor-data \
   --protocol-major-version 11 \
   --protocol-minor-version 0 \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
-  --check-anchor-data \
   --out-file $txs_dir/hardfork.action
 
 echo "Building transaction"

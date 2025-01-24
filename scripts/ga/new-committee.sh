@@ -10,6 +10,9 @@ METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/n
 METADATA_HASH="01318fd6815453f35a4daac80cbbe3bf46c35dc070eb7dc817f26dfee5042eb8"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# Set IPFS gateway incase anchor is using IPFS
+export IPFS_GATEWAY_URI="https://ipfs.io/"
+
 # Define directories
 keys_dir="./keys"
 txs_dir="./txs/ga"
@@ -41,6 +44,7 @@ container_cli conway governance action create\
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
+  --check-anchor-data \
   --out-file $txs_dir/new-committee.action
 
   # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
@@ -54,7 +58,6 @@ container_cli conway transaction build \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
  --proposal-file $txs_dir/new-committee.action \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --check-anchor-data \
  --out-file $txs_dir/new-committee-action-tx.unsigned
 
 echo "Signing transaction"
