@@ -27,7 +27,7 @@ echo "Deregistering your stake key."
 
 container_cli conway stake-address deregistration-certificate \
  --stake-verification-key-file $keys_dir/stake.vkey \
- --key-reg-deposit-amt $(container_cli conway query gov-state | jq -r .currentPParams.keyDeposit) \
+ --key-reg-deposit-amt $(container_cli conway query gov-state | jq -r .currentPParams.stakeAddressDeposit) \
  --out-file $txs_dir/stake-deregistration.cert
 
 echo "Building transaction"
