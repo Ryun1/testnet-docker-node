@@ -2,13 +2,10 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/secp256r1.jsonld"
-METADATA_HASH="40375637aadfdea454726d5f2692b4a940a4d2f2213739a40f9c2560c7bc4239"
+METADATA_URL="ipfs://bafkreif6huwxdcr6rgh6dmays747oek4mjihohcbozf324qi2emdo7gs2a"
+METADATA_HASH="99a19b124ceb89bbd92354e8d11f913d1aec7280ce19ac4c1c6cc72f0ea91884"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# Set IPFS gateway incase anchor is using IPFS
-export IPFS_GATEWAY_URI="https://ipfs.io/ipfs/"
 
 # Define directories
 keys_dir="./keys"
@@ -48,6 +45,7 @@ echo "Building transaction"
 
 container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
  --change-address "$(cat $keys_dir/payment.addr)" \
  --proposal-file $txs_dir/info.action \
  --out-file $txs_dir/info-action-tx.unsigned
