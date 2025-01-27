@@ -37,7 +37,7 @@ echo "Building transaction"
 
 container_cli conway transaction build \
  --witness-override 2 \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[20]') \
+ --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
  --change-address $(cat $keys_dir/payment.addr) \
  --certificate-file $tx_cert_path \
  --out-file $tx_unsigned_path
