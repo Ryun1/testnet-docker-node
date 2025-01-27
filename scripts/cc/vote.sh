@@ -52,12 +52,12 @@ container_cli conway transaction build \
   --out-file "$txs_dir/vote-tx.unsigned"
 
 # Sign transaction
-container_cli transaction sign \
+container_cli conway transaction sign \
   --tx-body-file "$txs_dir/vote-tx.unsigned" \
   --signing-key-file "$keys_dir/payment.skey" \
   --signing-key-file "$keys_dir/cc-hot.skey" \
   --out-file "$txs_dir/vote-tx.signed"
 
 # Submit transaction
-container_cli transaction submit \
+container_cli conway transaction submit \
   --tx-file "$txs_dir/vote-tx.signed"

@@ -49,10 +49,10 @@ container_cli conway transaction build \
   --witness-override 2 \
   --out-file $txs_dir/vote-tx.unsigned
 
-container_cli transaction sign \
+container_cli conway transaction sign \
   --tx-body-file $txs_dir/vote-tx.unsigned \
   --signing-key-file $keys_dir/drep.skey \
   --signing-key-file $keys_dir/payment.skey \
   --out-file $txs_dir/vote-tx.signed
 
-container_cli transaction submit --tx-file $txs_dir/vote-tx.signed
+container_cli conway transaction submit --tx-file $txs_dir/vote-tx.signed

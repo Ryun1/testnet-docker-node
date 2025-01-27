@@ -68,7 +68,7 @@ container_cli conway transaction witness \
   --signing-key-file $keys_dir/payment.skey \
   --out-file $txs_dir/reg-drep-multisig-register.witness
 
-container_cli transaction assemble \
+container_cli conway transaction assemble \
   --tx-body-file $txs_dir/reg-drep-multisig-register.unsigned \
   --witness-file $txs_dir/reg-drep-multisig-register.witness \
   --out-file $txs_dir/reg-drep-multisig-register.signed

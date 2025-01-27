@@ -39,11 +39,11 @@ container_cli conway transaction build \
  --certificate-file $txs_dir/stake-deregistration.cert \
  --out-file $txs_dir/stake-deregistration-tx.unsigned
 
-container_cli transaction sign \
+container_cli conway transaction sign \
  --tx-body-file $txs_dir/stake-deregistration-tx.unsigned \
  --signing-key-file $keys_dir/payment.skey \
  --signing-key-file $keys_dir/stake.skey \
  --out-file $txs_dir/stake-deregistration-tx.signed
 
-container_cli transaction submit \
+container_cli conway transaction submit \
  --tx-file $txs_dir/stake-deregistration-tx.signed

@@ -37,7 +37,7 @@ container_cli conway transaction build \
  --change-address $(cat $keys_dir/payment.addr) \
  --out-file $txs_dir/multi-sig/send-ada-to-script.unsigned
 
-container_cli transaction sign \
+container_cli conway transaction sign \
   --tx-body-file $txs_dir/multi-sig/send-ada-to-script.unsigned \
   --signing-key-file $keys_dir/payment.skey \
   --out-file $txs_dir/multi-sig/send-ada-to-script.signed
