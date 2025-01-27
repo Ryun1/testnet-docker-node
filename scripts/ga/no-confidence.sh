@@ -9,7 +9,7 @@ METADATA_HASH="ab901c3aeeca631ee5c70147a558fbf191a4af245d8ca001e845d8569d7c38f9"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Set IPFS gateway incase anchor is using IPFS
-export IPFS_GATEWAY_URI="https://ipfs.io/"
+export IPFS_GATEWAY_URI="https://ipfs.io/ipfs/"
 
 # Define directories
 keys_dir="./keys"
