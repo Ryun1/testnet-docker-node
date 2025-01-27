@@ -31,10 +31,10 @@ container_cli() {
 }
 
 # Voting on a governance action
-echo "Voting on $GA_TX_HASH with a $choice."
+echo "Voting on $GA_TX_HASH with a $CHOICE."
 
 container_cli conway governance vote create \
-  "--$choice" \
+  "--$CHOICE" \
   --governance-action-tx-id "$GA_TX_HASH" \
   --governance-action-index "$GA_TX_INDEX" \
   --drep-verification-key-file $keys_dir/drep.vkey \
