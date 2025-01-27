@@ -104,7 +104,7 @@ container_cli conway transaction witness \
   --out-file $keys_dir/multi-sig/payment.witness
 
 # Assemble Transaction
-container_cli transaction assemble \
+container_cli conway transaction assemble \
   --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
   --witness-file $keys_dir/multi-sig/payment.witness \
   --witness-file $keys_dir/multi-sig/parameter-action-1.witness \

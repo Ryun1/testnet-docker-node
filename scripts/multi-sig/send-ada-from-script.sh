@@ -61,7 +61,7 @@ container_cli conway transaction witness \
   --out-file $txs_dir/multi-sig/send-ada-from-script-3.witness
 
 # Assemble transaction
-container_cli transaction assemble \
+container_cli conway transaction assemble \
   --tx-body-file $txs_dir/multi-sig/send-ada-from-script.unsigned \
   --witness-file $txs_dir/multi-sig/send-ada-from-script-1.witness \
   --witness-file $txs_dir/multi-sig/send-ada-from-script-3.witness \
