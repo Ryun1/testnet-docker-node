@@ -8,9 +8,6 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="3e6b1083a637a740d5b84bb6edf1a5119b81440b31ea84907311b6543ebd39eb"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Set IPFS gateway incase anchor is using IPFS
-export IPFS_GATEWAY_URI="https://ipfs.io/ipfs/"
-
 # Define directories
 keys_dir="./keys"
 txs_dir="./txs/ga"
