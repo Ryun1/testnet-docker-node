@@ -33,7 +33,11 @@ multi_sig_dir="$tx_dir/multi-sig"
 dumps_dir="./dumps/$network"
 
 # Base URL for node config files
-config_base_url="https://book.play.dev.cardano.org/environments/$network/"
+if [ "$network" = "sanchonet" ]; then
+  config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
+else
+  config_base_url="https://book.play.dev.cardano.org/environments/$network/"
+fi
 
 # Function to create a directory if it doesn't exist
 create_dir() {
