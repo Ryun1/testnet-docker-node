@@ -1,7 +1,8 @@
 
 # Cardano Testnet (docker) Node Toolkit 🤠
 
-A simple dockerized Cardano node toolkit, for running a Cardano testnet nodes and interacting with the networks.
+A simple dockerized Cardano node toolkit,
+for running a Cardano testnet nodes and interacting with Cardano networks.
 
 **Current node version:** `10.1.4`
 
@@ -10,14 +11,14 @@ A simple dockerized Cardano node toolkit, for running a Cardano testnet nodes an
 ### `Docker`
 
 Install docker desktop for your operating system.
-- https://docs.docker.com/engine/install/
+- <https://docs.docker.com/engine/install>
 
 If you are using Apple silicon (M1, M2, M3 processor) make sure you have Rosetta enabled via Docker desktop settings.
 
 ### Visual Studio Code
 
 Install VSCode so we can more easily navigate directories, and inspect files.
-- https://code.visualstudio.com/
+- <https://code.visualstudio.com/>
 
 ### Mac Specific Prerequisites
 
@@ -44,6 +45,8 @@ Windows Subsystem for Linux.
 
 You may want to make a nice folder/directory for this first.
 
+Clone into current directory.
+
 ```bash
 git clone https://github.com/Ryun1/testnet-docker-node.git
 ```
@@ -65,6 +68,7 @@ Open a terminal inside of VSCode.
 Inside the terminal console, give scripts execute file permissions.
 
 Windows users will have to run this first, to access the wsl environment.
+
 ```bash
 wsl
 ```
@@ -92,6 +96,7 @@ We have a script that:
 - pushes the node logs to the terminal
 
 In your terminal execute:
+
 ```bash
 ./start-node.sh
 ```
@@ -123,18 +128,20 @@ And then click on the new terminal.
 Run the node query tip script.
 
 Windows users will have to run this first, to access the wsl environment.
+
 ```bash
 wsl
 ```
 
 In your second terminal execute:
+
 ```bash
 ./scripts/node-query-tip.sh
 ```
 
 For a fully synced node the terminal should return, with `syncProgress` of `100.00`.
 
-```bash
+```json
 {
     "block": 1185368,
     "epoch": 277,
@@ -150,7 +157,7 @@ For a fully synced node the terminal should return, with `syncProgress` of `100.
 For a un-fully synced node the terminal should return, with `syncProgress` of less than `100.00`.
 You will have to wait till fully synced node before being able to interact with the network.
 
-```bash
+```json
 {
     "block": 14646,
     "epoch": 3,
@@ -168,6 +175,7 @@ You will have to wait till fully synced node before being able to interact with 
 This script will stop your Cardano node, remember to run this when you are done using your node.
 
 In your second terminal execute:
+
 ```bash
 ./stop-docker.sh
 ```
@@ -185,6 +193,7 @@ We have a script that:
 - from keys, creates addresses and a DRep ID 
 
 In a terminal execute:
+
 ```bash
 ./scripts/generate-keys.sh
 ```
@@ -199,7 +208,7 @@ Get yourself some test ada, so you can pay for transaction fees.
 
 Open your new address from [./keys/payment.addr](./keys/payment.addr).
 
-Go to the [SanchoNet faucet](https://sancho.network/faucet) or [Testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet) and request some tAda sent to your new address.
+Go to the [Testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet) and request some tAda sent to your new address.
 
 ### Run Scripts
 
