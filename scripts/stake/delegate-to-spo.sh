@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 spo_id="pool104flte3y29dprxcntacsuyznhduvlaza38gvp8yyhy2vvmfenxa" # keyhash of the SPO

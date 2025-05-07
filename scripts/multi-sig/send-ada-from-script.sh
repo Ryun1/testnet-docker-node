@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 LOVELACE_AMOUNT=1000000

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 PREV_GA_TX_HASH="fd80ab8f65a620da457c18574787c9e5091bc2c71b776cd5edad0a005c37e307"

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 NETWORK=sanchonet envsubst < docker-compose.yml | docker-compose -f - down
 
