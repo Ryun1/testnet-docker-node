@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Get the list of running containers
 running_containers=$(docker ps --format '{{.Names}}')

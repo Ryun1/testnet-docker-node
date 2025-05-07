@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Define directories
 keys_dir="./keys"

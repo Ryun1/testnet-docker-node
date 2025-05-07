@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Get the script's directory
 script_dir=$(dirname "$0")

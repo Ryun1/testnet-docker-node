@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Define the list of available networks
 available_networks=("mainnet" "preprod" "preview" "sanchonet")
