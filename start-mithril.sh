@@ -1,0 +1,1 @@
+ # https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node#bootstrap-a-cardano-node-from-a-testnet-mithril-cardano-db-snapshot
