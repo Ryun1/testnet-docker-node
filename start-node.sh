@@ -28,6 +28,7 @@ cc_dir="$tx_dir/cc"
 drep_dir="$tx_dir/drep"
 ga_dir="$tx_dir/ga"
 multi_sig_dir="$tx_dir/multi-sig"
+tokens_dir="$tx_dir/tokens"
 
 # Dumps dir
 dumps_dir="./dumps/$network"
@@ -67,6 +68,7 @@ create_dir "$cc_dir"
 create_dir "$drep_dir"
 create_dir "$ga_dir"
 create_dir "$multi_sig_dir"
+create_dir "$tokens_dir"
 # Dumps dir
 create_dir "$dumps_dir"
 
