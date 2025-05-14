@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
 txs_dir="./txs/drep"
 tx_path_stub="$txs_dir/vote-deleg-tx"
 tx_cert_path="$tx_path_stub.cert"
-tx_unsigned_path="$tx_path_stub.unsigned"  
+tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
@@ -26,7 +26,7 @@ container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
-echo "Delegating your voting rights to your DRep ID."
+echo "Delegating your voting rights to your DRep ID ($(cat $keys_dir/drep.id))"
 
 container_cli conway stake-address vote-delegation-certificate \
  --stake-verification-key-file $keys_dir/stake.vkey \
@@ -52,15 +52,12 @@ container_cli conway transaction sign \
 
 echo "Submitting transaction"
 
-# Submit the transaction and capture the output
-transaction_output=$(container_cli conway transaction submit --tx-file $tx_signed_path)
-
-# Check if the transaction was successfully submitted
-if [[ $transaction_output == *"Transaction successfully submitted."* ]]; then
+# Submit the transaction
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
   # Get the transaction ID
   transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
-  echo "Transaction successfully submitted. Follow the transaction at: $transaction_id"
+  echo "Follow the transaction at: $transaction_id"
 else
-  echo "Transaction submission failed, see submit error:"
-  echo "$transaction_output"
+  echo "Transaction submission failed."
+  exit 1
 fi
