@@ -50,9 +50,9 @@ container_cli conway transaction sign \
  --signing-key-file $keys_dir/stake.skey \
  --out-file $tx_signed_path
 
+# Submit the transaction
 echo "Submitting transaction"
 
-# Submit the transaction
 if container_cli conway transaction submit --tx-file $tx_signed_path; then
   # Get the transaction ID
   transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)

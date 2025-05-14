@@ -8,9 +8,13 @@ GA_TX_INDEX="0"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
 txs_dir="./txs/drep"
+tx_path_stub="$txs_dir/drep-vote-tx"
+tx_cert_path="$tx_path_stub.vote"
+tx_unsigned_path="$tx_path_stub.unsigned"
+tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -38,21 +42,33 @@ container_cli conway governance vote create \
   --governance-action-tx-id "$GA_TX_HASH" \
   --governance-action-index "$GA_TX_INDEX" \
   --drep-verification-key-file $keys_dir/drep.vkey \
-  --out-file $txs_dir/ga.vote
+  --out-file $tx_cert_path
 
 echo "Building transaction"
 
 container_cli conway transaction build \
   --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
   --change-address "$(cat $keys_dir/payment.addr)" \
-  --vote-file $txs_dir/ga.vote \
+  --vote-file $tx_cert_path \
   --witness-override 2 \
-  --out-file $txs_dir/vote-tx.unsigned
+  --out-file $tx_unsigned_path
+
+echo "Signing transaction"
 
 container_cli conway transaction sign \
-  --tx-body-file $txs_dir/vote-tx.unsigned \
+  --tx-body-file $tx_unsigned_path \
   --signing-key-file $keys_dir/drep.skey \
   --signing-key-file $keys_dir/payment.skey \
-  --out-file $txs_dir/vote-tx.signed
+  --out-file $signed_path
 
-container_cli conway transaction submit --tx-file $txs_dir/vote-tx.signed
+# Submit the transaction
+echo "Submitting transaction"
+
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
+  # Get the transaction ID
+  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
+  echo "Follow the transaction at: $transaction_id"
+else
+  echo "Transaction submission failed."
+  exit 1
+fi
