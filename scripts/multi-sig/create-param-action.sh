@@ -5,9 +5,13 @@ METADATA_URL="https://buy-ryan-an-island.com"
 METADATA_HASH="0000000000000000000000000000000000000000000000000000000000000000"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
-txs_dir="./txs/ga"
+txs_dir="./txs/multi-sig"
+tx_path_stub="$txs_dir/param-change-action"
+tx_cert_path="$tx_path_stub.action"
+tx_unsigned_path="$tx_path_stub.unsigned"
+tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -63,7 +67,7 @@ container_cli conway governance action create-protocol-parameters-update \
   --anchor-data-hash "$METADATA_HASH" \
   --constitution-script-hash "$SCRIPT_HASH" \
   --key-reg-deposit-amt 3000000 \
-  --out-file $txs_dir/multi-sig/parameter.action
+  --out-file "$tx_cert_path"
 
 echo "Building transaction"
 
@@ -73,48 +77,53 @@ container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --proposal-file $txs_dir/multi-sig/parameter.action \
+ --proposal-file "$tx_cert_path" \
  --proposal-script-file $txs_dir/guardrails-script.plutus \
  --proposal-redeemer-value {} \
  --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
  --required-signer-hash "$(cat $keys_dir/multi-sig/2.keyhash)" \
  --required-signer-hash "$(cat $keys_dir/multi-sig/3.keyhash)" \
- --out-file $txs_dir/multi-sig/parameter-action-tx.unsigned
+ --out-file "$tx_unsigned_path"
 
 # Create multisig witnesses
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/multi-sig/1.skey \
-  --out-file $keys_dir/multi-sig/parameter-action-1.witness
+  --out-file "$tx_path_stub-1.witness"
 
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/multi-sig/2.skey \
-  --out-file $keys_dir/multi-sig/parameter-action-2.witness
+  --out-file "$tx_path_stub-2.witness"
 
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/multi-sig/3.skey \
-  --out-file $keys_dir/multi-sig/parameter-action-3.witness
+  --out-file "$tx_path_stub-3.witness"
 
 # Create witness
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/payment.skey \
-  --out-file $keys_dir/multi-sig/payment.witness
+  --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction
 container_cli conway transaction assemble \
-  --tx-body-file $txs_dir/multi-sig/parameter-action-tx.unsigned \
-  --witness-file $keys_dir/multi-sig/payment.witness \
-  --witness-file $keys_dir/multi-sig/parameter-action-1.witness \
-  --witness-file $keys_dir/multi-sig/parameter-action-2.witness \
-  --witness-file $keys_dir/multi-sig/parameter-action-3.witness \
-  --out-file $txs_dir/multi-sig/parameter-action-tx.signed
+  --tx-body-file "$tx_unsigned_path" \
+  --witness-file "$tx_path_stub-payment.witness" \
+  --witness-file "$tx_path_stub-2.witness" \
+  --witness-file "$tx_path_stub-3.witness" \
+  --witness-file "$tx_path_stub-3.witness" \
+  --out-file "$tx_signed_path"
 
-# Submit Transaction
+# Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit \
- --tx-file $txs_dir/multi-sig/parameter-action-tx.signed
-
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
+  # Get the transaction ID
+  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
+  echo "Follow the transaction at: $transaction_id"
+else
+  echo "Transaction submission failed."
+  exit 1
+fi

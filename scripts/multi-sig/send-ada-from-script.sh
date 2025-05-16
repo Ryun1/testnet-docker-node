@@ -4,9 +4,12 @@
 LOVELACE_AMOUNT=1000000
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
-txs_dir="./txs/ga"
+txs_dir="./txs/multi-sig"
+tx_path_stub="$txs_dir/send-ada-from-script"
+tx_unsigned_path="$tx_path_stub.unsigned"
+tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -37,38 +40,49 @@ container_cli conway transaction build \
  --tx-out $(cat $keys_dir/payment.addr)+$LOVELACE_AMOUNT \
  --change-address $(cat $keys_dir/multi-sig/script.addr) \
  --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
+ --required-signer-hash "$(cat $keys_dir/multi-sig/2.keyhash)" \
  --required-signer-hash "$(cat $keys_dir/multi-sig/3.keyhash)" \
- --out-file $txs_dir/multi-sig/send-ada-from-script.unsigned
+ --out-file "$txs_unsigned_path"
 
-# Create witnesses
-
-# Key 1
+# Create multisig witnesses
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/send-ada-from-script.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/multi-sig/1.skey \
-  --out-file $txs_dir/multi-sig/send-ada-from-script-1.witness
+  --out-file "$tx_path_stub-1.witness"
 
-# Key 2
-# container_cli conway transaction witness \
-#   --tx-body-file $txs_dir/multi-sig/send-ada-from-script.unsigned \
-#   --signing-key-file $keys_dir/multi-sig/2.skey \
-#   --out-file $txs_dir/multi-sig/send-ada-from-script-2.witness
-
-# Key 3
 container_cli conway transaction witness \
-  --tx-body-file $txs_dir/multi-sig/send-ada-from-script.unsigned \
+  --tx-body-file "$tx_unsigned_path" \
+  --signing-key-file $keys_dir/multi-sig/2.skey \
+  --out-file "$tx_path_stub-2.witness"
+
+container_cli conway transaction witness \
+  --tx-body-file "$tx_unsigned_path" \
   --signing-key-file $keys_dir/multi-sig/3.skey \
-  --out-file $txs_dir/multi-sig/send-ada-from-script-3.witness
+  --out-file "$tx_path_stub-3.witness"
 
-# Assemble transaction
+# Create witness
+container_cli conway transaction witness \
+  --tx-body-file "$tx_unsigned_path" \
+  --signing-key-file $keys_dir/payment.skey \
+  --out-file "$tx_path_stub-payment.witness"
+
+# Assemble Transaction
 container_cli conway transaction assemble \
-  --tx-body-file $txs_dir/multi-sig/send-ada-from-script.unsigned \
-  --witness-file $txs_dir/multi-sig/send-ada-from-script-1.witness \
-  --witness-file $txs_dir/multi-sig/send-ada-from-script-3.witness \
-  --out-file $txs_dir/multi-sig/send-ada-from-script.signed
+  --tx-body-file "$tx_unsigned_path" \
+  --witness-file "$tx_path_stub-payment.witness" \
+  --witness-file "$tx_path_stub-2.witness" \
+  --witness-file "$tx_path_stub-3.witness" \
+  --witness-file "$tx_path_stub-3.witness" \
+  --out-file "$tx_signed_path"
 
-# Submit transaction
+# Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit \
- --tx-file $txs_dir/multi-sig/send-ada-from-script.signed
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
+  # Get the transaction ID
+  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
+  echo "Follow the transaction at: $transaction_id"
+else
+  echo "Transaction submission failed."
+  exit 1
+fi
