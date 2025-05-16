@@ -31,7 +31,7 @@ container_cli() {
 }
 
 # Send ada to the multisig payment script
-echo "Sending $LOVELACE_AMOUNT lovelace to the multisig payment address."
+echo "Sending $LOVELACE_AMOUNT lovelace to $ADDRESS."
 
 echo "Building transaction"
 
