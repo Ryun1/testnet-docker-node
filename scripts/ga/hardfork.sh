@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
+PROTOCOL_MAJOR_VERSION="11"
+PROTOCOL_MINOR_VERSION="0"
+
 PREV_GA_TX_HASH="fd80ab8f65a620da457c18574787c9e5091bc2c71b776cd5edad0a005c37e307"
 PREV_GA_INDEX="0"
 
@@ -12,7 +15,7 @@ METADATA_HASH="8a1bd37caa6b914a8b569adb63a0f41d8f159c110dc5c8409118a3f087fffb43"
 keys_dir="./keys"
 txs_dir="./txs/ga"
 tx_path_stub="$txs_dir/hardfork"
-tx_cert_path="$tx_path_stub.cert"
+tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
@@ -44,8 +47,8 @@ container_cli conway governance action create-hardfork \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
-  --protocol-major-version 11 \
-  --protocol-minor-version 0 \
+  --protocol-major-version "$PROTOCOL_MAJOR_VERSION" \
+  --protocol-minor-version "$PROTOCOL_MINOR_VERSION" \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"

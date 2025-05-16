@@ -8,9 +8,13 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="3e6b1083a637a740d5b84bb6edf1a5119b81440b31ea84907311b6543ebd39eb"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
 txs_dir="./txs/ga"
+tx_path_stub="$txs_dir/new-constitution"
+tx_cert_path="$tx_path_stub.action"
+tx_unsigned_path="$tx_path_stub.unsigned"
+tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -51,30 +55,34 @@ container_cli conway governance action create-protocol-parameters-update \
   --cost-model-file $txs_dir/test-plutusv3-params.json \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
-  --out-file $txs_dir/parameter.action
+  --out-file "$tx_cert_path"
 
 echo "Building transaction"
 
 container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[3]')" \
- --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
- --proposal-file $txs_dir/parameter.action \
+ --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --proposal-file "$tx_cert_path" \
  --proposal-script-file $txs_dir/guardrails-script.plutus \
  --proposal-redeemer-value {} \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --out-file $txs_dir/parameter-action-tx.unsigned
+ --out-file "$tx_unsigned_path" \
 
 echo "Signing transaction"
 
 container_cli conway transaction sign \
- --tx-body-file $txs_dir/parameter-action-tx.unsigned \
+ --tx-body-file "$tx_unsigned_path" \
  --signing-key-file $keys_dir/payment.skey \
- --out-file $txs_dir/parameter-action-tx.signed
+ --out-file "$tx_signed_path"
 
+# Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit \
- --tx-file $txs_dir/parameter-action-tx.signed
-
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
+  # Get the transaction ID
+  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
+  echo "Follow the transaction at: $transaction_id"
+else
+  echo "Transaction submission failed."
+  exit 1
+fi

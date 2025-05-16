@@ -11,7 +11,7 @@ METADATA_HASH="99a19b124ceb89bbd92354e8d11f913d1aec7280ce19ac4c1c6cc72f0ea91884"
 keys_dir="./keys"
 txs_dir="./txs/ga"
 tx_path_stub="$txs_dir/info"
-tx_cert_path="$tx_path_stub.cert"
+tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 

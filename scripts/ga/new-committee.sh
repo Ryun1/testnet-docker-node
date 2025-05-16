@@ -10,9 +10,13 @@ METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/n
 METADATA_HASH="01318fd6815453f35a4daac80cbbe3bf46c35dc070eb7dc817f26dfee5042eb8"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directories
+# Define directory paths
 keys_dir="./keys"
 txs_dir="./txs/ga"
+tx_path_stub="$txs_dir/new-committee"
+tx_cert_path="$tx_path_stub.action"
+tx_unsigned_path="$tx_path_stub.unsigned"
+tx_signed_path="$tx_path_stub.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -42,7 +46,7 @@ container_cli conway governance action create\
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
-  --out-file $txs_dir/new-committee.action
+  --out-file "$tx_cert_path"
 
   # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   # --prev-governance-action-index "$PREV_GA_INDEX" \
@@ -51,20 +55,25 @@ echo "Building transaction"
 
 container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
- --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
- --proposal-file $txs_dir/new-committee.action \
+ --proposal-file "$tx_cert_path" \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --out-file $txs_dir/new-committee-action-tx.unsigned
+ --out-file "$tx_unsigned_path" \
 
 echo "Signing transaction"
 
 container_cli conway transaction sign \
- --tx-body-file $txs_dir/new-committee-action-tx.unsigned \
+ --tx-body-file "$tx_unsigned_path" \
  --signing-key-file $keys_dir/payment.skey \
- --out-file $txs_dir/new-committee-action-tx.signed
+ --out-file "$tx_signed_path" \
 
+# Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit \
- --tx-file $txs_dir/new-committee-action-tx.signed
+if container_cli conway transaction submit --tx-file $tx_signed_path; then
+  # Get the transaction ID
+  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
+  echo "Follow the transaction at: $transaction_id"
+else
+  echo "Transaction submission failed."
+  exit 1
+fi
