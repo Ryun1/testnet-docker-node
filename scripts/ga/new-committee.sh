@@ -4,7 +4,8 @@
 PREV_GA_TX_HASH=""
 PREV_GA_INDEX="0"
 
-NEW_MEMBER_CRED="xxx"
+NEW_MEMBER_KEYHASH="xxx"
+NEW_MEMBER_EXPIRATION="10000"
 
 METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/new-const-2"
 METADATA_HASH="01318fd6815453f35a4daac80cbbe3bf46c35dc070eb7dc817f26dfee5042eb8"
@@ -39,10 +40,12 @@ container_cli() {
 # Building, signing and submitting an new-committee change governance action
 echo "Creating and submitting new-committee governance action."
 
-container_cli conway governance action create\
+container_cli conway governance action update-committee \
   --testnet \
   --governance-action-deposit $(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
+  --epoch "$NEW_MEMBER_EXPIRATION" \
+  --add-cc-cold-verification-key-hash "$NEW_MEMBER_KEYHASH" \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
