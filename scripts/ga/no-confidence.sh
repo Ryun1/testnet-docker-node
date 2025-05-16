@@ -11,7 +11,7 @@ METADATA_HASH="ab901c3aeeca631ee5c70147a558fbf191a4af245d8ca001e845d8569d7c38f9"
 # Define directory paths
 keys_dir="./keys"
 txs_dir="./txs/ga"
-tx_path_stub="$txs_dir/new-constitution"
+tx_path_stub="$txs_dir/no-confidence"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
