@@ -57,7 +57,6 @@ echo "Building transaction"
 
 container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[1]')" \
  --proposal-file "$tx_cert_path" \
  --change-address "$(cat $keys_dir/payment.addr)" \
  --out-file "$txs_unsigned_path"
