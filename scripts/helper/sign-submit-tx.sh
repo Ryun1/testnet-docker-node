@@ -1,16 +1,15 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-LOVELACE_AMOUNT=10000000
-ADDRESS="addr_test1wqft2yqkp8wj5k5k7dy9725kxkcd4ep4ycp5uczuqtt3vqcgh63dt"
+TRANSACTION_FILE="treasury-contract"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Define directory paths
 keys_dir="./keys"
 txs_dir="./txs"
-tx_path_stub="$txs_dir/send-ada"
-tx_unsigned_path="$tx_path_stub.unsigned"
-tx_signed_path="$tx_path_stub.signed"
+
+tx_unsigned_path="$txs_dir/$TRANSACTION_FILE.unsigned"
+tx_signed_path="$txs_dir/$TRANSACTION_FILE.signed"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -31,15 +30,7 @@ container_cli() {
 }
 
 # Send ada to the multisig payment script
-echo "Sending $LOVELACE_AMOUNT lovelace to $ADDRESS."
-
-echo "Building transaction"
-
-container_cli conway transaction build \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
- --tx-out "$ADDRESS"+$LOVELACE_AMOUNT \
- --change-address $(cat $keys_dir/payment.addr) \
- --out-file "$tx_unsigned_path"
+echo "Signing and submitting $tx_unsigned_path transaction."
 
 container_cli conway transaction sign \
   --tx-body-file "$tx_unsigned_path" \
