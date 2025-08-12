@@ -2,9 +2,12 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-CHOICE="yes"
-GA_TX_HASH="66cbbf693a8549d0abb1b5219f1127f8176a4052ef774c11a52ff18ad1845102"
+CHOICE="no"
+GA_TX_HASH="00b4ff8891a1a697fb917f5f4c865133bdaad856e7e0cda11a886aa6873bea91"
 GA_TX_INDEX="0"
+
+ANCHOR_URI="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/sancho-vote.json"
+ANCHOR_HASH="5c783d31732ab3661a17879a41b0fd482a0d0befc63e7735641f7c82ba88f00e"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -42,6 +45,9 @@ container_cli conway governance vote create \
   --governance-action-tx-id "$GA_TX_HASH" \
   --governance-action-index "$GA_TX_INDEX" \
   --drep-verification-key-file $keys_dir/drep.vkey \
+  --anchor-data-hash "$ANCHOR_HASH" \
+  --anchor-url "$ANCHOR_URI" \
+  --check-anchor-data-hash \
   --out-file $tx_cert_path
 
 echo "Building transaction"
@@ -59,7 +65,7 @@ container_cli conway transaction sign \
   --tx-body-file $tx_unsigned_path \
   --signing-key-file $keys_dir/drep.skey \
   --signing-key-file $keys_dir/payment.skey \
-  --out-file $signed_path
+  --out-file $tx_signed_path
 
 # Submit the transaction
 echo "Submitting transaction"
