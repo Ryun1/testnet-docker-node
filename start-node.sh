@@ -102,6 +102,7 @@ config_files=(
   "shelley-genesis.json"
   "alonzo-genesis.json"
   "conway-genesis.json"
+  "peer-snapshot.json"
 )
 
 # Change directory to the config directory and download files
