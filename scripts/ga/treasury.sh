@@ -1,13 +1,10 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-LOVELACE_AMOUNT="100000000"
+LOVELACE_AMOUNT="2162096000000"
 
-PREV_GA_TX_HASH="0f19207eb4fdb7c538549588ad0a17c577df797ba5d9f1b51658501485ca30b8"
-PREV_GA_INDEX="0"
-
-METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/cip108/treasury-withdrawal.jsonld"
-METADATA_HASH="633e6f25fea857662d1542921f1fa2cab5f90a9e4cb51bdae8946f823e403ea8"
+METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/EG-0003-25.jsonld"
+METADATA_HASH="91a36ac3cc4b563a407e7a86139fee9e7e2b2a6511617b96ba3165ccddf5a5b3"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Define directory paths
@@ -43,7 +40,7 @@ echo "\nPull the latest guardrails script."
 curl --silent -J -L https://book.world.dev.cardano.org/environments/mainnet/guardrails-script.plutus -o $txs_dir/guardrails-script.plutus
 
 # echo "\nGet the guardrails script hash from the genesis file."
-SCRIPT_HASH=$(jq -r ".constitution.script" "./node/config/conway-genesis.json")
+SCRIPT_HASH=$(jq -r ".constitution.script" "./node-preview/config/conway-genesis.json")
 echo "Script hash: $SCRIPT_HASH"
 
 container_cli conway governance action create-treasury-withdrawal \

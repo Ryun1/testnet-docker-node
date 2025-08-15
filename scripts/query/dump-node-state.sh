@@ -31,7 +31,7 @@ container_cli conway query committee-state > ./dumps/$network/committee.json
 # Dumping out constitution state
 echo "Dumping constitution state."
 
-container_cli conway query  constitution > ./dumps/$network/constitution.json
+container_cli conway query constitution > ./dumps/$network/constitution.json
 
 # Query DReps from ledger state
 echo "Dumping DReps from ledger state."

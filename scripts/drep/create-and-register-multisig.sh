@@ -2,7 +2,7 @@
 
 # Define directories
 keys_dir="./keys"
-txs_dir="./txs/drep"
+txs_dir="./txs/multi-sig"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -45,11 +45,11 @@ echo "Registering you as a native script multisig DRep."
 # echo "$updated_json" > "$txs_dir/multisig-drep.json"
 
 container_cli hash script \
-  --script-file $txs_dir/multisig-drep.json \
-  --out-file $txs_dir/multisig-drep.id
+  --script-file $txs_dir/drep-one-sig.json \
+  --out-file $txs_dir/drep-one-sig.id
 
 container_cli conway governance drep registration-certificate \
- --drep-script-hash "$(cat $txs_dir/multisig-drep.id)" \
+ --drep-script-hash "$(cat $txs_dir/drep-one-sig.id)" \
  --key-reg-deposit-amt "$(container_cli conway query gov-state | jq -r .currentPParams.dRepDeposit)" \
  --out-file $txs_dir/drep-multisig-register.cert
 
@@ -60,7 +60,7 @@ container_cli conway transaction build \
  --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
  --change-address $(cat $keys_dir/payment.addr) \
  --certificate-file $txs_dir/drep-multisig-register.cert \
- --certificate-script-file $txs_dir/multisig-drep.json \
+ --certificate-script-file $txs_dir/drep-one-sig.json \
  --out-file $txs_dir/reg-drep-multisig-register.unsigned
 
 container_cli conway transaction witness \
@@ -68,9 +68,15 @@ container_cli conway transaction witness \
   --signing-key-file $keys_dir/payment.skey \
   --out-file $txs_dir/reg-drep-multisig-register.witness
 
+container_cli conway transaction witness \
+  --tx-body-file $txs_dir/reg-drep-multisig-register.unsigned \
+  --signing-key-file $keys_dir/multi-sig/1.skey \
+  --out-file $txs_dir/reg-drep-multisig-register-1.witness
+
 container_cli conway transaction assemble \
   --tx-body-file $txs_dir/reg-drep-multisig-register.unsigned \
   --witness-file $txs_dir/reg-drep-multisig-register.witness \
+  --witness-file $txs_dir/reg-drep-multisig-register-1.witness \
   --out-file $txs_dir/reg-drep-multisig-register.signed
 
 echo "Submitting transaction"
