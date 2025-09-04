@@ -119,9 +119,6 @@ cd "$base_dir" || exit
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network
 
-# Get the network magic from the shelley-genesis.json file and pass it into the container
-export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
-
 # Substitute the variables in the docker-compose.yml file and start the Docker container
 echo -e "${CYAN}Starting the Docker container...${NC}"
 envsubst < docker-compose.yml | docker-compose -f - up -d --build

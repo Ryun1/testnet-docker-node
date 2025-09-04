@@ -1,17 +1,25 @@
 version: "3.5"
 
 services:
-  cardano-node-${NETWORK}:
+  cardano-node:
     container_name: node-${NETWORK}-container
     network_mode: "host"
     build:
       context: ./
-      args:
-        CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
     restart: always
+    environment:
+      - CARDANO_CONFIG_BASE=/opt/cardano/config
+      - CARDANO_DATABASE_PATH=/data/db
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_BIND_ADDR=0.0.0.0
+      - CARDANO_PORT=3001
+      - CARDANO_CONFIG=/opt/cardano/config/config.json
+      - CARDANO_TOPOLOGY=/opt/cardano/config/topology.json
+      - CARDANO_NETWORK=${NETWORK}
+      - RESTORE_SNAPSHOT=false
     volumes:
       - ./node-${NETWORK}/db:/data/db
-      - ./node-${NETWORK}/config:/config
+      - ./node-${NETWORK}/config:/opt/cardano/config
       - ./node-${NETWORK}/ipc:/ipc
       - ./keys:/keys
       - ./txs:/txs
