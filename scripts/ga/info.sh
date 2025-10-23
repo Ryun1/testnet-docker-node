@@ -2,8 +2,8 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="ipfs://bafkreicek47fmmvljbc2bjosg23x7hj5h7ijg7on447oy5gfuii7opgm6y"
-METADATA_HASH="e0b3334da88a7d80049cda2f4bd4491582d79fc8f76311eb83f030474ddc3186"
+METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/cip108/no-confidence.jsonld"
+METADATA_HASH="f95826679a0097b5132f0af398676402e77bce0cf2d08ca7d0ffe1952d4f6872"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -39,11 +39,13 @@ echo "Creating and submitting info governance action."
 container_cli conway governance action create-info \
   --testnet \
   --governance-action-deposit $(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
-  --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
+  --deposit-return-stake-address "stake_test1upffv8jm0p5y79kerl2zq5rzlkqvrg25aj3k0wq6jxkthqch5gyt0" \
   --anchor-url $METADATA_URL \
   --anchor-data-hash $METADATA_HASH \
   --check-anchor-data \
   --out-file "$tx_cert_path"
+
+  # --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
 
 echo "Building transaction"
 

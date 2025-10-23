@@ -103,6 +103,7 @@ config_files=(
   "alonzo-genesis.json"
   "conway-genesis.json"
   "peer-snapshot.json"
+  "guardrails-script.plutus"
 )
 
 # Change directory to the config directory and download files
