@@ -1,9 +1,6 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-PREV_GA_TX_HASH="602d8572263929bdb0aba911d45ecf4bf0a2430e2f263f89df7114d168985f57"
-PREV_GA_INDEX="0"
-
 METADATA_URL="ipfs://bafkreie7nigppy74jyjoibe5ovxy2wulrnk7pn6iocpyrpdhbwtec6mufi"
 METADATA_HASH="281f512aff1ab91a0ed3207d3f7a03e55f9dc179cb0f6f3c9ffaf9743dd11e8d"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,6 +40,15 @@ echo "Hashing guardrails script"
 SCRIPT_HASH=$(container_cli hash script --script-file $guardrails_script_path)
 
 echo "Script hash: $SCRIPT_HASH"
+
+echo "Finding the previous Parameter Change to reference"
+
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.PParamUpdate.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.PParamUpdate.govActionIx')
+
+echo "Previous Protocol Param Change GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
 container_cli conway governance action create-protocol-parameters-update \
   --testnet \

@@ -1,9 +1,6 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-PREV_GA_TX_HASH=""
-PREV_GA_INDEX="0"
-
 NEW_CONSTITUTION_ANCHOR_URL="ipfs://QmbiATXEFuuAktbjLJJPiRyZowAgqqM3hfZoNFNmMCygjb"
 NEW_CONSTITUTION_ANCHOR_HASH="2a61e2f4b63442978140c77a70daab3961b22b12b63b13949a390c097214d1c5"
 
@@ -38,6 +35,15 @@ echo "Using running container: $container_name"
 container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
+
+# echo "Finding the previous Constitution GA to reference"
+
+# GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+# PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Constitution.txId')
+# PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Constitution.govActionIx')
+
+echo "Previous Constitution GA Tx Hash: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
 # Building, signing and submitting an new-constitution change governance action
 echo "Creating and submitting new-constitution governance action."
