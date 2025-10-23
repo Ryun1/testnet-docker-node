@@ -39,13 +39,11 @@ echo "Creating and submitting info governance action."
 container_cli conway governance action create-info \
   --testnet \
   --governance-action-deposit $(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
-  --deposit-return-stake-address "stake_test1upffv8jm0p5y79kerl2zq5rzlkqvrg25aj3k0wq6jxkthqch5gyt0" \
+  --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url $METADATA_URL \
   --anchor-data-hash $METADATA_HASH \
   --check-anchor-data \
   --out-file "$tx_cert_path"
-
-  # --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
 
 echo "Building transaction"
 
