@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-PREV_GA_TX_HASH="0f19207eb4fdb7c538549588ad0a17c577df797ba5d9f1b51658501485ca30b8"
+PREV_GA_TX_HASH="602d8572263929bdb0aba911d45ecf4bf0a2430e2f263f89df7114d168985f57"
 PREV_GA_INDEX="0"
 
-METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-10-21-ppu/metadata.jsonld"
-METADATA_HASH="3e6b1083a637a740d5b84bb6edf1a5119b81440b31ea84907311b6543ebd39eb"
+METADATA_URL="ipfs://bafkreie7nigppy74jyjoibe5ovxy2wulrnk7pn6iocpyrpdhbwtec6mufi"
+METADATA_HASH="281f512aff1ab91a0ed3207d3f7a03e55f9dc179cb0f6f3c9ffaf9743dd11e8d"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Define directory paths
@@ -15,6 +15,8 @@ tx_path_stub="$txs_dir/parameter-change"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
+
+guardrails_script_path="./config/guardrails-script.plutus"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -37,11 +39,9 @@ container_cli() {
 # Building, signing and submitting an parameter change governance action
 echo "Creating and submitting parameter change governance action."
 
-echo "\nPull the latest guardrails script."
-curl --silent -J -L https://book.world.dev.cardano.org/environments/mainnet/guardrails-script.plutus -o $txs_dir/guardrails-script.plutus
+echo "Hashing guardrails script"
+SCRIPT_HASH=$(container_cli hash script --script-file $guardrails_script_path)
 
-# echo "\nGet the guardrails script hash from the genesis file."
-SCRIPT_HASH=$(jq -r ".constitution.script" "./node/config/conway-genesis.json")
 echo "Script hash: $SCRIPT_HASH"
 
 container_cli conway governance action create-protocol-parameters-update \
@@ -52,7 +52,8 @@ container_cli conway governance action create-protocol-parameters-update \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
   --constitution-script-hash $SCRIPT_HASH \
-  --cost-model-file $txs_dir/test-plutusv3-params.json \
+  --max-tx-execution-units "(10000000000, 16500000)" \
+  --max-block-execution-units "(20000000000, 72000000)" \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"
@@ -63,10 +64,10 @@ container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --proposal-file "$tx_cert_path" \
- --proposal-script-file $txs_dir/guardrails-script.plutus \
+ --proposal-script-file $guardrails_script_path \
  --proposal-redeemer-value {} \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --out-file "$tx_unsigned_path" \
+ --out-file "$tx_unsigned_path"
 
 echo "Signing transaction"
 
