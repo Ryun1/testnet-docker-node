@@ -4,9 +4,6 @@
 PROTOCOL_MAJOR_VERSION="11"
 PROTOCOL_MINOR_VERSION="0"
 
-PREV_GA_TX_HASH="fd80ab8f65a620da457c18574787c9e5091bc2c71b776cd5edad0a005c37e307"
-PREV_GA_INDEX="0"
-
 METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/refs/heads/main/mainnet/2024-10-30-hf10/metadata.jsonld"
 METADATA_HASH="8a1bd37caa6b914a8b569adb63a0f41d8f159c110dc5c8409118a3f087fffb43"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,6 +33,15 @@ echo "Using running container: $container_name"
 container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
+
+echo "Finding the previous Hardfork to reference"
+
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.HardFork.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.HardFork.govActionIx')
+
+echo "Previous Hardfork GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
 # Building, signing and submitting an hardfork change governance action
 echo "Creating and submitting hardfork governance action."

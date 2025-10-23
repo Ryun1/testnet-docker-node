@@ -1,9 +1,6 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-PREV_GA_TX_HASH=""
-PREV_GA_INDEX="0"
-
 NEW_MEMBER_KEYHASH="xxx"
 NEW_MEMBER_EXPIRATION="10000"
 
@@ -78,6 +75,15 @@ export REMOVE_CC_3_SCRIPT_HASH="ce8b37a72b178a37bbd3236daa7b2c158c9d3604e7aa667e
 export REMOVE_CC_4_SCRIPT_HASH="f0dc2c00d92a45521267be2d5de1c485f6f9d14466d7e16062897cf7"
 # Japan Council
 export REMOVE_CC_5_SCRIPT_HASH="e8165b3328027ee0d74b1f07298cb092fd99aa7697a1436f5997f625"
+
+echo "Finding the previous Committee GA to reference"
+
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Committee.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Committee.govActionIx')
+
+echo "Previous Committee GA Tx Hash: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
 # Building, signing and submitting an new-committee change governance action
 echo "Creating and submitting new-committee governance action."
