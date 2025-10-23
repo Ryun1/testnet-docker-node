@@ -39,7 +39,7 @@ container_cli() {
 # Building, signing and submitting an parameter change governance action
 echo "Creating and submitting parameter change governance action."
 
-echo "Hashing guardrails script hash"
+echo "Hashing guardrails script"
 SCRIPT_HASH=$(container_cli hash script --script-file $guardrails_script_path)
 
 echo "Script hash: $SCRIPT_HASH"
