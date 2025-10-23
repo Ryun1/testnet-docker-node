@@ -54,11 +54,4 @@ container-cli conway transaction sign \
 # Submit the transaction
 echo "Submitting transaction"
 
-if container_cli conway transaction submit --tx-file $tx_signed_path; then
-  # Get the transaction ID
-  transaction_id=$(container_cli conway transaction txid --tx-file $tx_signed_path)
-  echo "Follow the transaction at: $transaction_id"
-else
-  echo "Transaction submission failed."
-  exit 1
-fi
+container_cli conway transaction submit --tx-file $tx_signed_path
