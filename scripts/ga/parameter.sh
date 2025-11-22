@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-METADATA_URL="ipfs://bafkreie7nigppy74jyjoibe5ovxy2wulrnk7pn6iocpyrpdhbwtec6mufi"
-METADATA_HASH="281f512aff1ab91a0ed3207d3f7a03e55f9dc179cb0f6f3c9ffaf9743dd11e8d"
+METADATA_URL="ipfs://bafkreia5vseqm3hqmds45gje4szvekwkzd4mebzeepbh2cdlr3krxcj2ou"
+METADATA_HASH="dfa2df398319b48e80a2caf02f4165bf12b6689d0ed57eee5e13dfa94857ed71"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Define directory paths
