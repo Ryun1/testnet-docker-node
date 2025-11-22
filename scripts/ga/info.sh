@@ -2,8 +2,8 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/cip108/no-confidence.jsonld"
-METADATA_HASH="f95826679a0097b5132f0af398676402e77bce0cf2d08ca7d0ffe1952d4f6872"
+METADATA_URL="ipfs://bafkreif2mbndv6nqpect6hbpyunfbu6lnbo2nmqo6rla5kgowbxz45sh6y"
+METADATA_HASH="3721b453df890ba0690c68efad99373aa80afb3e40c059fc6c859e41fb8867be"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
