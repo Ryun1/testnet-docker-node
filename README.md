@@ -4,7 +4,7 @@
 A simple dockerized Cardano node toolkit,
 for running a Cardano testnet nodes and interacting with Cardano networks.
 
-**Current node version:** `10.5.1`
+**Current node version:** `10.5.3`
 
 ## Prerequisites
 
