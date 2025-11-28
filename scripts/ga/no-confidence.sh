@@ -34,6 +34,15 @@ container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
+echo "Finding the previous No Confidence to reference"
+
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Committee.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Committee.govActionIx')
+
+echo "Previous No Confidence GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
+
 # Building, signing and submitting an no-confidence change governance action
 echo "Creating and submitting no-confidence governance action."
 
@@ -44,10 +53,9 @@ container_cli conway governance action create-no-confidence \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
+  --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
+  --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"
-
-  # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
-  # --prev-governance-action-index "$PREV_GA_INDEX" \
 
 echo "Building transaction"
 
