@@ -65,16 +65,16 @@ container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --proposal-file "$tx_cert_path" \
  --change-address "$(cat $keys_dir/payment.addr)" \
- --out-file "$txs_unsigned_path"
+ --out-file "$tx_unsigned_path"
 
 echo "Signing transaction"
 
 container_cli conway transaction sign \
- --tx-body-file "$txs_unsigned_path" \
+ --tx-body-file "$tx_unsigned_path" \
  --signing-key-file $keys_dir/payment.skey \
- --out-file "$txs_signed_path"
+ --out-file "$tx_unsigned_path"
 
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file $tx_signed_path
+# container_cli conway transaction submit --tx-file $tx_signed_path

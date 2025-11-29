@@ -2,8 +2,8 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="ipfs://bafkreif2mbndv6nqpect6hbpyunfbu6lnbo2nmqo6rla5kgowbxz45sh6y"
-METADATA_HASH="3721b453df890ba0690c68efad99373aa80afb3e40c059fc6c859e41fb8867be"
+METADATA_URL="ipfs://bafkreihmmaxya6rwrnh36zfl4eaijv67oamdxbj6r3z3nfbwmn55sj4ime"
+METADATA_HASH="2df56fcaaa6d6bd73e792b871b746cd9c6209e95a2f0e6344502be9f7abf5567"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
