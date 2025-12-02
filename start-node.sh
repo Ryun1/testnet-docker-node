@@ -36,9 +36,23 @@ select network in "${available_networks[@]}"; do
   fi
 done
 
+# Define the list of available node versions
+available_versions=("10.5.1" "10.5.3" "10.6.1")
+
+# Prompt the user to select a node version
+echo -e "${CYAN}Please select a node version:${NC}"
+select node_version in "${available_versions[@]}"; do
+  if [ -n "$node_version" ]; then
+    echo -e "${GREEN}You have selected: $node_version${NC}"
+    break
+  else
+    echo -e "${RED}Invalid selection. Please try again.${NC}"
+  fi
+done
+
 # Set directory locations
 base_dir="$(pwd)"
-node_dir="$base_dir/node-$network"
+node_dir="$base_dir/node-$network-$node_version"
 config_dir="$node_dir/config"
 db_dir="$node_dir/db"
 ipc_dir="$node_dir/ipc"
@@ -119,6 +133,7 @@ cd "$base_dir" || exit
 
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network
+export NODE_VERSION=$node_version
 
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
@@ -129,4 +144,4 @@ envsubst < docker-compose.yml | docker-compose -f - up -d --build
 
 # Forward the logs to the terminal
 echo -e "${GREEN}Docker container logs:${NC}"
-docker logs "node-$network-container" --follow
+docker logs "node-$network-$node_version-container" --follow

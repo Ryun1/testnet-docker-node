@@ -1,18 +1,19 @@
 version: "3.5"
 
 services:
-  cardano-node-${NETWORK}:
-    container_name: node-${NETWORK}-container
+  cardano-node-${NETWORK}-${NODE_VERSION}:
+    container_name: node-${NETWORK}-${NODE_VERSION}-container
     network_mode: "host"
     build:
       context: ./
       args:
+        CARDANO_NODE_VERSION: ${NODE_VERSION}
         CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
     restart: always
     volumes:
-      - ./node-${NETWORK}/db:/data/db
-      - ./node-${NETWORK}/config:/config
-      - ./node-${NETWORK}/ipc:/ipc
+      - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db
+      - ./node-${NETWORK}-${NODE_VERSION}/config:/config
+      - ./node-${NETWORK}-${NODE_VERSION}/ipc:/ipc
       - ./keys:/keys
       - ./txs:/txs
       - ./dumps:/dumps

@@ -1,7 +1,8 @@
-FROM ghcr.io/intersectmbo/cardano-node:10.5.3
-
 # Define build-time variables
+ARG CARDANO_NODE_VERSION=10.5.3 # Default fallback if not provided
 ARG CARDANO_NODE_NETWORK_ID
+
+FROM ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
 
 # Set environment variables
 ENV CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
