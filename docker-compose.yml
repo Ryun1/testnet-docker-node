@@ -9,6 +9,7 @@ services:
       args:
         CARDANO_NODE_VERSION: ${NODE_VERSION}
         CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
+        CARDANO_NODE_PORT: ${NODE_PORT}
     restart: always
     volumes:
       - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db

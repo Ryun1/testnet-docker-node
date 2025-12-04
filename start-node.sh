@@ -39,6 +39,23 @@ done
 # Define the list of available node versions
 available_versions=("10.5.1" "10.5.3" "10.6.1")
 
+# Function to assign a unique port based on version
+# This ensures different versions on the same network use different ports
+assign_port_for_version() {
+  local version=$1
+  local base_port=3001
+  
+  # Create a simple hash from version string to get consistent port assignment
+  # Convert version like "10.5.1" to a number for port offset
+  # Remove dots and take modulo to get offset (0-99 range)
+  local version_no_dots=$(echo "$version" | tr -d '.')
+  local version_num=$((10#$version_no_dots))  # Force base-10 interpretation
+  local offset=$((version_num % 100))
+  local port=$((base_port + offset))
+  
+  echo $port
+}
+
 # Prompt the user to select a node version
 echo -e "${CYAN}Please select a node version:${NC}"
 select node_version in "${available_versions[@]}"; do
@@ -49,6 +66,10 @@ select node_version in "${available_versions[@]}"; do
     echo -e "${RED}Invalid selection. Please try again.${NC}"
   fi
 done
+
+# Assign a unique port for this version
+NODE_PORT=$(assign_port_for_version "$node_version")
+echo -e "${BLUE}Assigned port: $NODE_PORT${NC}"
 
 # Set directory locations
 base_dir="$(pwd)"
@@ -134,6 +155,7 @@ cd "$base_dir" || exit
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network
 export NODE_VERSION=$node_version
+export NODE_PORT=$NODE_PORT
 
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
