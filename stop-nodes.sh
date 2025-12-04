@@ -1,9 +1,22 @@
 #!/bin/bash
 
-NETWORK=sanchonet envsubst < docker-compose.yml | docker-compose -f - down
+# Stop all cardano node containers matching the pattern node-*-*-container
+# This handles versioned containers (e.g., node-preprod-10.5.3-container)
+echo "Stopping all Cardano node containers..."
 
-NETWORK=preview envsubst < docker-compose.yml | docker-compose -f - down
+# Get all running containers and filter for node-*-*-container pattern
+containers=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
 
-NETWORK=preprod envsubst < docker-compose.yml | docker-compose -f - down
+if [ -z "$containers" ]; then
+  echo "No Cardano node containers found running."
+  exit 0
+fi
 
-NETWORK=mainnet envsubst < docker-compose.yml | docker-compose -f - down
+# Stop each container
+for container in $containers; do
+  echo "Stopping container: $container"
+  docker stop "$container" 2>/dev/null || true
+  docker rm "$container" 2>/dev/null || true
+done
+
+echo "All Cardano node containers stopped."
