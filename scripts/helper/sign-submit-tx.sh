@@ -4,15 +4,16 @@
 TRANSACTION_FILE="treasury-contract"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs"
 
 tx_unsigned_path="$txs_dir/$TRANSACTION_FILE.unsigned"
 tx_signed_path="$txs_dir/$TRANSACTION_FILE.signed"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"

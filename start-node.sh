@@ -71,8 +71,12 @@ done
 NODE_PORT=$(assign_port_for_version "$node_version")
 echo -e "${BLUE}Assigned port: $NODE_PORT${NC}"
 
+# Get the project root directory (where this script is located)
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir" && pwd)
+
 # Set directory locations
-base_dir="$(pwd)"
+base_dir="$project_root"
 node_dir="$base_dir/node-$network-$node_version"
 config_dir="$node_dir/config"
 db_dir="$node_dir/db"
@@ -89,10 +93,10 @@ simple_dir="$tx_dir/simple"
 helper_dir="$tx_dir/helper"
 
 # Dumps dir
-dumps_dir="./dumps/$network"
+dumps_dir="$base_dir/dumps/$network"
 
 # Utilities dir
-utilities_dir="./utilities"
+utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
 if [ "$network" = "sanchonet" ]; then

@@ -7,16 +7,17 @@ METADATA_HASH="2df56fcaaa6d6bd73e792b871b746cd9c6209e95a2f0e6344502be9f7abf5567"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/ga"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/ga"
 tx_path_stub="$txs_dir/info"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"

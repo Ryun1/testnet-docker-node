@@ -8,16 +8,17 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="ab901c3aeeca631ee5c70147a558fbf191a4af245d8ca001e845d8569d7c38f9"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/ga"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/ga"
 tx_path_stub="$txs_dir/no-confidence"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"

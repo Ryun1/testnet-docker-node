@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Define directories
-keys_dir="./keys"
-txs_dir="./txs/helper"
-
-# Get the script's directory
+# Get the script's directory and project root
 script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/helper"
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"

@@ -2,19 +2,21 @@
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 LOVELACE_AMOUNT=1230000
-CSV_FILE="./keys/addresses-testnet.csv"
-METADATA_FILE="./keys/metadata-testnet.json"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/simple"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/simple"
+CSV_FILE="$keys_dir/addresses-testnet.csv"
+METADATA_FILE="$keys_dir/metadata-testnet.json"
 tx_path_stub="$txs_dir/send-to-many"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
