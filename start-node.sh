@@ -26,19 +26,55 @@ echo
 # Define the list of available networks
 available_networks=("mainnet" "preprod" "preview" "sanchonet")
 
-# Prompt the user to select a network
-echo -e "${CYAN}Please select a network:${NC}"
-select network in "${available_networks[@]}"; do
-  if [ -n "$network" ]; then
-    echo -e "${GREEN}You have selected: $network${NC}"
-    break
-  else
-    echo -e "${RED}Invalid selection. Please try again.${NC}"
-  fi
-done
-
 # Define the list of available node versions
 available_versions=("10.5.1" "10.5.3" "10.6.1")
+
+# Initialize variables to avoid unbound variable errors
+network=""
+node_version=""
+
+# Check if running in non-interactive mode (e.g., CI/CD)
+if [ ! -t 0 ]; then
+  # Non-interactive mode: read from stdin
+  read -r network_choice || true
+  if [ -n "$network_choice" ] && [ "$network_choice" -ge 1 ] && [ "$network_choice" -le ${#available_networks[@]} ]; then
+    network="${available_networks[$((network_choice - 1))]}"
+    echo -e "${GREEN}Selected network: $network${NC}"
+  else
+    echo -e "${RED}Error: Invalid network selection: $network_choice${NC}"
+    exit 1
+  fi
+  
+  read -r version_choice || true
+  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
+    node_version="${available_versions[$((version_choice - 1))]}"
+    echo -e "${GREEN}Selected node version: $node_version${NC}"
+  else
+    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
+    exit 1
+  fi
+else
+  # Interactive mode: use select
+  echo -e "${CYAN}Please select a network:${NC}"
+  select network in "${available_networks[@]}"; do
+    if [ -n "$network" ]; then
+      echo -e "${GREEN}You have selected: $network${NC}"
+      break
+    else
+      echo -e "${RED}Invalid selection. Please try again.${NC}"
+    fi
+  done
+  
+  echo -e "${CYAN}Please select a node version:${NC}"
+  select node_version in "${available_versions[@]}"; do
+    if [ -n "$node_version" ]; then
+      echo -e "${GREEN}You have selected: $node_version${NC}"
+      break
+    else
+      echo -e "${RED}Invalid selection. Please try again.${NC}"
+    fi
+  done
+fi
 
 # Function to assign a unique port based on version
 # This ensures different versions on the same network use different ports
@@ -57,16 +93,16 @@ assign_port_for_version() {
   echo $port
 }
 
-# Prompt the user to select a node version
-echo -e "${CYAN}Please select a node version:${NC}"
-select node_version in "${available_versions[@]}"; do
-  if [ -n "$node_version" ]; then
-    echo -e "${GREEN}You have selected: $node_version${NC}"
-    break
-  else
-    echo -e "${RED}Invalid selection. Please try again.${NC}"
-  fi
-done
+# Validate that both network and node_version are set
+if [ -z "$network" ]; then
+  echo -e "${RED}Error: Network not selected${NC}"
+  exit 1
+fi
+
+if [ -z "$node_version" ]; then
+  echo -e "${RED}Error: Node version not selected${NC}"
+  exit 1
+fi
 
 # Assign a unique port for this version
 NODE_PORT=$(assign_port_for_version "$node_version")
