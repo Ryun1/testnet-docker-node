@@ -5,3 +5,10 @@ dumps/
 node/
 secrets/
 node-*/
+/scripts/poison
+/scripts/poison/
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
