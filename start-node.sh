@@ -89,6 +89,9 @@ multi_sig_dir="$tx_dir/multi-sig"
 # Dumps dir
 dumps_dir="./dumps/$network"
 
+# Utilities dir
+utilities_dir="./utilities"
+
 # Base URL for node config files
 if [ "$network" = "sanchonet" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
@@ -128,6 +131,8 @@ create_dir "$ga_dir"
 create_dir "$multi_sig_dir"
 # Dumps dir
 create_dir "$dumps_dir"
+# Utilities dir
+create_dir "$utilities_dir"
 
 # List of JSON files to download
 config_files=(
