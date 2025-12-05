@@ -1,4 +1,5 @@
 #!/bin/bash
+<<<<<<< HEAD
 set -euo pipefail
 
 # Get the script's directory and project root
@@ -8,10 +9,22 @@ project_root=$(cd "$script_dir/../.." && pwd)
 # Define directory paths relative to project root
 keys_dir="$project_root/keys"
 txs_dir="$project_root/txs/simple"
+=======
+
+# ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
+LOVELACE_AMOUNT=10000000  # Amount of lovelace to send to each address (1 ADA = 1000000 lovelace)
+CSV_FILE="./addresses.csv"  # Path to CSV file containing addresses
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Define directory paths
+keys_dir="./keys"
+txs_dir="./txs"
+>>>>>>> bc50b73 (poison script a)
 tx_path_stub="$txs_dir/send-to-many"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
+<<<<<<< HEAD
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 LOVELACE_AMOUNT=1000000
 
@@ -37,6 +50,25 @@ fi
 
 # Source the cardano-cli wrapper
 source "$script_dir/../helper/cardano-cli-wrapper.sh"
+=======
+# Get the script's directory
+script_dir=$(dirname "$0")
+
+# Get the container name from the get-container script
+container_name="$("$script_dir/../helper/get-container.sh")"
+
+if [ -z "$container_name" ]; then
+  echo "Failed to determine a running container."
+  exit 1
+fi
+
+echo "Using running container: $container_name"
+
+# Function to execute cardano-cli commands inside the container
+container_cli() {
+  docker exec -ti $container_name cardano-cli "$@"
+}
+>>>>>>> bc50b73 (poison script a)
 
 # Check if CSV file exists
 if [ ! -f "$CSV_FILE" ]; then
@@ -44,6 +76,7 @@ if [ ! -f "$CSV_FILE" ]; then
   exit 1
 fi
 
+<<<<<<< HEAD
 # Verify header contains "address"
 if ! head -1 "$CSV_FILE" | grep -q "address"; then
   echo "Error: CSV file must have 'address' column header"
@@ -63,6 +96,44 @@ while IFS=',' read -r addr rest; do
   addr=$(echo "$addr" | xargs)
   if [ -n "$addr" ]; then
     addresses+=("$addr")
+=======
+# Read addresses from CSV file
+# Skip header row and extract addresses from the "address" column
+addresses=()
+header_found=false
+address_col_index=-1
+
+while IFS=',' read -r line; do
+  # Remove any quotes and whitespace
+  line=$(echo "$line" | sed 's/"//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  
+  if [ "$header_found" = false ]; then
+    # Find the column index for "address"
+    IFS=',' read -ra HEADER <<< "$line"
+    for i in "${!HEADER[@]}"; do
+      header_val=$(echo "${HEADER[$i]}" | sed 's/"//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      if [ "$header_val" = "address" ]; then
+        address_col_index=$i
+        header_found=true
+        break
+      fi
+    done
+    
+    if [ "$address_col_index" -eq -1 ]; then
+      echo "Error: 'address' column not found in CSV file"
+      exit 1
+    fi
+    continue
+  fi
+  
+  # Extract address from the appropriate column
+  IFS=',' read -ra FIELDS <<< "$line"
+  if [ ${#FIELDS[@]} -gt $address_col_index ]; then
+    addr=$(echo "${FIELDS[$address_col_index]}" | sed 's/"//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [ -n "$addr" ]; then
+      addresses+=("$addr")
+    fi
+>>>>>>> bc50b73 (poison script a)
   fi
 done < "$CSV_FILE"
 
@@ -76,6 +147,7 @@ echo "Found ${#addresses[@]} addresses in CSV file"
 echo "Sending $LOVELACE_AMOUNT lovelace to each address"
 
 # Get UTXO from payment address
+<<<<<<< HEAD
 
 # payment_addr=$(cat $keys_dir/payment.addr)
 payment_addr=$PAYMENT_ADDR
@@ -84,6 +156,11 @@ echo "Using payment address: $payment_addr"
 # utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
 
 utxo="b35fdadd3c496fcc86f78f235de3aa2c091f88de5534e999f005ac4ad29aff8e#0"
+=======
+payment_addr=$(cat $keys_dir/payment.addr)
+utxo_output=$(container_cli conway query utxo --address "$payment_addr" --out-file /dev/stdout)
+utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+>>>>>>> bc50b73 (poison script a)
 
 if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
   echo "Error: No UTXO found at payment address"
@@ -103,6 +180,7 @@ build_args=(
 # Add tx-out for each address
 for addr in "${addresses[@]}"; do
   build_args+=("--tx-out" "$addr+$LOVELACE_AMOUNT")
+<<<<<<< HEAD
   echo ""--tx-out" "$addr+$LOVELACE_AMOUNT""
 done
 
@@ -210,4 +288,31 @@ done
 
 # # echo "Transaction submitted successfully!"
 # # echo "Sent $LOVELACE_AMOUNT lovelace to ${#addresses[@]} addresses"
+=======
+done
+
+# Add change address
+build_args+=(
+  "--change-address" "$payment_addr"
+  "--out-file" "$tx_unsigned_path"
+)
+
+container_cli "${build_args[@]}"
+
+# Sign the transaction
+echo "Signing transaction"
+
+container_cli conway transaction sign \
+  --tx-body-file "$tx_unsigned_path" \
+  --signing-key-file $keys_dir/payment.skey \
+  --out-file "$tx_signed_path"
+
+# Submit the transaction
+echo "Submitting transaction"
+
+container_cli conway transaction submit --tx-file $tx_signed_path
+
+echo "Transaction submitted successfully!"
+echo "Sent $LOVELACE_AMOUNT lovelace to ${#addresses[@]} addresses"
+>>>>>>> bc50b73 (poison script a)
 
