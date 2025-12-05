@@ -36,35 +36,35 @@ echo "Sending $LOVELACE_AMOUNT lovelace to the payment address from the script."
 echo "Building transaction"
 
 container_cli conway transaction build \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/multi-sig/script.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
- --tx-in-script-file $keys_dir/multi-sig/script.json \
- --tx-out $(cat $keys_dir/payment.addr)+$LOVELACE_AMOUNT \
- --change-address $(cat $keys_dir/multi-sig/script.addr) \
- --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
- --required-signer-hash "$(cat $keys_dir/multi-sig/2.keyhash)" \
- --required-signer-hash "$(cat $keys_dir/multi-sig/3.keyhash)" \
+ --tx-in "$(container_cli conway query utxo --address "$(cat "$keys_dir/multi-sig/script.addr")" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --tx-in-script-file "$keys_dir/multi-sig/script.json" \
+ --tx-out "$(cat "$keys_dir/payment.addr")+$LOVELACE_AMOUNT" \
+ --change-address "$(cat "$keys_dir/multi-sig/script.addr")" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/1.keyhash")" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/2.keyhash")" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/3.keyhash")" \
  --out-file "$tx_unsigned_path"
 
 # Create multisig witnesses
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/1.skey \
+  --signing-key-file "$keys_dir/multi-sig/1.skey" \
   --out-file "$tx_path_stub-1.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/2.skey \
+  --signing-key-file "$keys_dir/multi-sig/2.skey" \
   --out-file "$tx_path_stub-2.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/3.skey \
+  --signing-key-file "$keys_dir/multi-sig/3.skey" \
   --out-file "$tx_path_stub-3.witness"
 
 # Create witness
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/payment.skey \
+  --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction

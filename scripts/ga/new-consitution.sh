@@ -37,12 +37,12 @@ container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
-# echo "Finding the previous Constitution GA to reference"
+echo "Finding the previous Constitution GA to reference"
 
-# GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
 
-# PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Constitution.txId')
-# PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Constitution.govActionIx')
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Constitution.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Constitution.govActionIx')
 
 echo "Previous Constitution GA Tx Hash: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
@@ -60,10 +60,9 @@ container_cli conway governance action create-constitution \
   --constitution-hash "$NEW_CONSTITUTION_ANCHOR_HASH" \
   --check-constitution-hash \
   --constitution-script-hash "$NEW_CONSTITUTION_SCRIPT_HASH" \
+  --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
+  --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"
-
-  # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
-  # --prev-governance-action-index "$PREV_GA_INDEX" \
 
 echo "Building transaction"
 

@@ -27,7 +27,7 @@ container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
-stake_account_balance=$(container_cli conway query stake-address-info --address $(cat $keys_dir/stake.addr) | jq -r '.[0].rewardAccountBalance') 
+stake_account_balance=$(container_cli conway query stake-address-info --address "$(cat "$keys_dir/stake.addr")" | jq -r '.[0].rewardAccountBalance') 
 
 # Send ada to the multisig payment script
 echo "Withdrawing all balance of $stake_account_balance from stake account."
@@ -35,9 +35,9 @@ echo "Withdrawing all balance of $stake_account_balance from stake account."
 echo "Building transaction"
 
 container_cli conway transaction build \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
- --change-address $(cat $keys_dir/payment.addr) \
- --withdrawal $(cat $keys_dir/stake.addr)+$stake_account_balance \
+ --tx-in "$(container_cli conway query utxo --address "$(cat "$keys_dir/payment.addr")" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --change-address "$(cat "$keys_dir/payment.addr")" \
+ --withdrawal "$(cat "$keys_dir/stake.addr")+$stake_account_balance" \
  --out-file "$tx_unsigned_path"
 
 echo "Signing transaction"

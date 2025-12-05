@@ -27,16 +27,25 @@ fi
 
 echo "Using running container: $container_name"
 
+# Extract network from container name (format: node-network-version-container)
+network=$(echo $container_name | cut -d'-' -f2)
+
 # Function to execute cardano-cli commands inside the container
 container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
 echo "\nPull the latest guardrails script."
-curl --silent -J -L https://book.world.dev.cardano.org/environments/mainnet/guardrails-script.plutus -o $txs_dir/guardrails-script.plutus
+# Use network-specific URL (mainnet uses world.dev, testnets use play.dev)
+if [ "$network" = "mainnet" ]; then
+  guardrails_url="https://book.world.dev.cardano.org/environments/mainnet/guardrails-script.plutus"
+else
+  guardrails_url="https://book.play.dev.cardano.org/environments/$network/guardrails-script.plutus"
+fi
+curl --silent -J -L "$guardrails_url" -o "$txs_dir/guardrails-script.plutus"
 
 echo "\nGet the guardrails script hash from the genesis file."
-SCRIPT_HASH=$(container_cli hash script --script-file $txs_dir/guardrails-script.plutus)
+SCRIPT_HASH=$(container_cli hash script --script-file "$txs_dir/guardrails-script.plutus")
 echo "Script hash: $SCRIPT_HASH"
 
 # Building, signing and submitting an parameter update governance action
@@ -57,12 +66,12 @@ echo "Building transaction"
 
 container_cli conway transaction build \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/multi-sig/script.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --tx-in-script-file $keys_dir/multi-sig/script.json \
+ --tx-in-script-file "$keys_dir/multi-sig/script.json" \
  --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --tx-in-collateral "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --change-address "$(cat $keys_dir/payment.addr)" \
  --proposal-file "$tx_cert_path" \
- --proposal-script-file $txs_dir/guardrails-script.plutus \
+ --proposal-script-file "$txs_dir/guardrails-script.plutus" \
  --proposal-redeemer-value {} \
  --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
  --required-signer-hash "$(cat $keys_dir/multi-sig/2.keyhash)" \
@@ -72,23 +81,23 @@ container_cli conway transaction build \
 # Create multisig witnesses
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/1.skey \
+  --signing-key-file "$keys_dir/multi-sig/1.skey" \
   --out-file "$tx_path_stub-1.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/2.skey \
+  --signing-key-file "$keys_dir/multi-sig/2.skey" \
   --out-file "$tx_path_stub-2.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/3.skey \
+  --signing-key-file "$keys_dir/multi-sig/3.skey" \
   --out-file "$tx_path_stub-3.witness"
 
 # Create witness
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/payment.skey \
+  --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction

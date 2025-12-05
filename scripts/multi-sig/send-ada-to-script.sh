@@ -36,9 +36,9 @@ echo "Sending $LOVELACE_AMOUNT lovelace to the multisig payment address."
 echo "Building transaction"
 
 container_cli conway transaction build \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
- --tx-out $(cat $keys_dir/multi-sig/script.addr)+$LOVELACE_AMOUNT \
- --change-address $(cat $keys_dir/payment.addr) \
+ --tx-in "$(container_cli conway query utxo --address "$(cat "$keys_dir/payment.addr")" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --tx-out "$(cat "$keys_dir/multi-sig/script.addr")+$LOVELACE_AMOUNT" \
+ --change-address "$(cat "$keys_dir/payment.addr")" \
  --out-file "$tx_unsigned_path"
 
 container_cli conway transaction sign \
