@@ -86,6 +86,7 @@ drep_dir="$tx_dir/drep"
 ga_dir="$tx_dir/ga"
 multi_sig_dir="$tx_dir/multi-sig"
 simple_dir="$tx_dir/simple"
+helper_dir="$tx_dir/helper"
 
 # Dumps dir
 dumps_dir="./dumps/$network"
@@ -131,6 +132,7 @@ create_dir "$drep_dir"
 create_dir "$ga_dir"
 create_dir "$multi_sig_dir"
 create_dir "$simple_dir"
+create_dir "$helper_dir"
 # Dumps dir
 create_dir "$dumps_dir"
 # Utilities dir

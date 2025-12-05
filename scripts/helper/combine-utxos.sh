@@ -2,7 +2,7 @@
 
 # Define directories
 keys_dir="./keys"
-txs_dir="./txs/"
+txs_dir="./txs/helper"
 
 # Get the script's directory
 script_dir=$(dirname "$0")
