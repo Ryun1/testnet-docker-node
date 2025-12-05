@@ -238,6 +238,122 @@ Make sure you have a node running for these.
 ./scripts/drep/delegate-to-self.sh
 ```
 
+## Using Multiple Nodes and External Nodes
+
+This toolkit supports connecting to multiple Cardano nodes simultaneously - both Docker containers and external nodes running outside of Docker. You can run scripts against different networks and nodes at the same time.
+
+### External Node Configuration
+
+External nodes use environment variables `CARDANO_NODE_SOCKET_PATH` and `CARDANO_NODE_NETWORK_ID`. You can configure these through the `start-node.sh` script, which will prompt you for the values and confirm them before use.
+
+**Important:** Only one external node connection is supported at a time. For multiple external nodes, switch environment variables between script executions.
+
+#### Setting Up External Node
+
+Use the `start-node.sh` script to configure:
+
+```bash
+./start-node.sh
+# Select: "Configure connection to an external node via socket file"
+# Enter socket path and network ID
+# Confirm the values
+```
+
+Or set environment variables directly:
+
+```bash
+export CARDANO_NODE_SOCKET_PATH="/path/to/node.socket"
+export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet
+
+# Run scripts
+./scripts/query/tip.sh
+```
+
+#### Network Magic Numbers
+
+- **preprod**: Network ID `1`
+- **preview**: Network ID `2`
+- **sanchonet**: Network ID `4`
+- **mainnet**: Network ID `764824073` (blocked for external nodes)
+
+### Docker Container Selection
+
+Specify which Docker container to use:
+
+```bash
+# Use specific container
+CARDANO_CONTAINER_NAME="node-preprod-10.5.3-container" ./scripts/query/tip.sh
+
+# Use different container
+CARDANO_CONTAINER_NAME="node-preview-10.5.3-container" ./scripts/query/tip.sh
+```
+
+### Multiple Docker Containers
+
+When multiple Docker containers are running, the toolkit will:
+- **Automatically select** the only container if only one is running
+- **Prompt you to choose** if multiple containers are running (interactive mode)
+- **Use the first container** if running non-interactively (no TTY)
+
+To avoid prompts, specify the container name:
+
+```bash
+CARDANO_CONTAINER_NAME="node-preprod-10.5.3-container" ./scripts/query/tip.sh
+```
+
+### Single Node Configuration (Backward Compatible)
+
+For backward compatibility, you can still use the old single-node format:
+
+```json
+{
+  "socket_path": "/path/to/your/node.socket",
+  "network": "preprod",
+  "network_id": 1,
+  "mode": "external"
+}
+```
+
+### Requirements
+
+- **Local cardano-cli**: When using external node mode, you must have `cardano-cli` installed locally and available in your PATH
+- **Network restriction**: Mainnet connections via external sockets are **not allowed** for security reasons. Only testnet networks (preprod, preview, sanchonet) are supported
+- **Socket file**: The socket file must be accessible and the node must be running
+
+### Network Magic Numbers
+
+- **preprod**: Network ID `1`
+- **preview**: Network ID `2`
+- **sanchonet**: Network ID `4`
+- **mainnet**: Network ID `764824073` (blocked for external nodes, allowed in Docker mode)
+
+### Example: Running Scripts Against Multiple Networks
+
+```bash
+# Terminal 1: Query preprod via external node
+CARDANO_NODE_SOCKET_PATH="/path/to/preprod.socket" CARDANO_NODE_NETWORK_ID=1 ./scripts/query/tip.sh
+
+# Terminal 2: Query preview via external node (switch env vars)
+CARDANO_NODE_SOCKET_PATH="/path/to/preview.socket" CARDANO_NODE_NETWORK_ID=2 ./scripts/query/tip.sh
+
+# Terminal 3: Use Docker container for mainnet
+CARDANO_CONTAINER_NAME="node-mainnet-10.5.3-container" ./scripts/query/tip.sh
+```
+
+### Node Selection Priority
+
+The toolkit uses the following priority order:
+
+1. `CARDANO_NODE_SOCKET_PATH` + `CARDANO_NODE_NETWORK_ID` - External node (environment variables)
+2. `CARDANO_CONTAINER_NAME` - Direct container name specification (for Docker mode)
+3. Docker mode with container selection - Default fallback
+
+**Note:** External nodes require both `CARDANO_NODE_SOCKET_PATH` and `CARDANO_NODE_NETWORK_ID` to be set. Use the `start-node.sh` script to configure and confirm these values.
+
+### Version Check
+
+When using external node mode, the toolkit will automatically check and display your local `cardano-cli` version and which node is being used. If `cardano-cli` is not found in PATH, you'll receive a warning.
+
 ## Common Error Messages
 
 ### Docker desktop application not open
@@ -247,3 +363,19 @@ Cannot connect to the Docker daemon at unix:///Users/XXXX/.docker/run/docker.soc
 ```
 
 **Fix:** Open docker desktop
+
+### Mainnet connection blocked
+
+```bash
+Error: Mainnet connections are not allowed. Please use testnet networks (preprod, preview, sanchonet) only.
+```
+
+**Fix:** This error appears when attempting to connect to mainnet via external socket. Use Docker mode for mainnet, or switch to a testnet network.
+
+### cardano-cli not found
+
+```bash
+Warning: cardano-cli not found in PATH. External node mode requires cardano-cli to be installed locally.
+```
+
+**Fix:** Install `cardano-cli` locally and ensure it's in your PATH when using external node mode.

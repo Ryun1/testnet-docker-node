@@ -36,82 +36,35 @@ if [ ! -f "$keys_dir/drep.skey" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
-
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
-
-# Helper function to get UTXO with validation
-get_utxo() {
-  local address=$1
-  local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
-  local utxo
-  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
-  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
-    echo "Error: No UTXO found at address: $address" >&2
-    exit 1
-  fi
-  echo "$utxo"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Registering you as a drep
 echo "Registering you as a DRep."
 
-container_cli conway governance drep registration-certificate \
- --drep-key-hash "$(cat "$keys_dir/drep.id")" \
- --key-reg-deposit-amt "$(container_cli conway query gov-state | jq -r '.currentPParams.dRepDeposit')" \
- --out-file "$tx_cert_path"
-
-# Check certificate file was created
-if [ ! -f "$tx_cert_path" ]; then
-  echo "Error: Failed to create certificate file"
-  exit 1
-fi
+cardano_cli conway governance drep registration-certificate \
+ --drep-key-hash "$(cat $keys_dir/drep.id)" \
+ --key-reg-deposit-amt "$(cardano_cli conway query gov-state | jq -r .currentPParams.dRepDeposit)" \
+ --out-file $tx_cert_path
 
 echo "Building transaction"
 
-payment_addr=$(cat "$keys_dir/payment.addr")
-utxo=$(get_utxo "$payment_addr")
-
-container_cli conway transaction build \
+cardano_cli conway transaction build \
  --witness-override 2 \
- --tx-in "$utxo" \
- --change-address "$payment_addr" \
- --certificate-file "$tx_cert_path" \
- --out-file "$tx_unsigned_path"
-
-# Check transaction file was created
-if [ ! -f "$tx_unsigned_path" ]; then
-  echo "Error: Failed to create unsigned transaction file"
-  exit 1
-fi
+ --tx-in $(cardano_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
+ --change-address $(cat $keys_dir/payment.addr) \
+ --certificate-file $tx_cert_path \
+ --out-file $tx_unsigned_path
 
 echo "Signing transaction"
 
-container_cli conway transaction sign \
- --tx-body-file "$tx_unsigned_path" \
- --signing-key-file "$keys_dir/payment.skey" \
- --signing-key-file "$keys_dir/drep.skey" \
- --out-file "$tx_signed_path"
-
-# Check signed transaction file was created
-if [ ! -f "$tx_signed_path" ]; then
-  echo "Error: Failed to create signed transaction file"
-  exit 1
-fi
+cardano_cli conway transaction sign \
+ --tx-body-file $tx_unsigned_path \
+ --signing-key-file $keys_dir/payment.skey \
+ --signing-key-file $keys_dir/drep.skey \
+ --out-file $tx_signed_path
 
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+cardano_cli conway transaction submit --tx-file $tx_signed_path

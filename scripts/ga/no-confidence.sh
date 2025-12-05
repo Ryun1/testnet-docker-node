@@ -20,24 +20,13 @@ tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
-
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
-}
+# Get the script's directory
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 echo "Finding the previous No Confidence to reference"
 
-GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+GOV_STATE=$(cardano_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
 
 PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Committee.txId')
 PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Committee.govActionIx')
@@ -47,9 +36,8 @@ echo "Previous No Confidence GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 # Building, signing and submitting an no-confidence change governance action
 echo "Creating and submitting no-confidence governance action."
 
-container_cli conway governance action create-no-confidence \
-  --testnet \
-  --governance-action-deposit $(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+cardano_cli conway governance action create-no-confidence \
+  --governance-action-deposit $(cardano_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
@@ -60,15 +48,15 @@ container_cli conway governance action create-no-confidence \
 
 echo "Building transaction"
 
-container_cli conway transaction build \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+cardano_cli conway transaction build \
+ --tx-in "$(cardano_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
  --proposal-file "$tx_cert_path" \
  --change-address "$(cat $keys_dir/payment.addr)" \
  --out-file "$tx_unsigned_path" \
 
 echo "Signing transaction"
 
-container_cli conway transaction sign \
+cardano_cli conway transaction sign \
  --tx-body-file "$tx_unsigned_path" \
  --signing-key-file $keys_dir/payment.skey \
  --out-file "$tx_signed_path"
@@ -76,5 +64,4 @@ container_cli conway transaction sign \
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file $tx_signed_path
-
+cardano_cli conway transaction submit --tx-file $tx_signed_path

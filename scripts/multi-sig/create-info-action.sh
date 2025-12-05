@@ -57,42 +57,17 @@ if [ ! -f "$keys_dir/payment.skey" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
-
-# Helper function to get UTXO with validation
-get_utxo() {
-  local address=$1
-  local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
-  local utxo
-  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
-  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
-    echo "Error: No UTXO found at address: $address" >&2
-    exit 1
-  fi
-  echo "$utxo"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Building, signing and submitting an info governance action
 echo "Creating and submitting info governance action, using the multi-sig's ada."
 
-container_cli conway governance action create-info \
-  --testnet \
-  --governance-action-deposit "$(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit')" \
-  --deposit-return-stake-verification-key-file "$keys_dir/stake.vkey" \
+
+cardano_cli conway governance action create-info \
+  --governance-action-deposit $(cardano_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
+  --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --out-file "$tx_cert_path"
@@ -105,16 +80,12 @@ fi
 
 echo "Building transaction"
 
-script_addr=$(cat "$keys_dir/multi-sig/script.addr")
-payment_addr=$(cat "$keys_dir/payment.addr")
-script_utxo=$(get_utxo "$script_addr")
-payment_utxo=$(get_utxo "$payment_addr")
 
-container_cli conway transaction build \
- --tx-in "$script_utxo" \
- --tx-in-script-file "$keys_dir/multi-sig/script.json" \
- --tx-in "$payment_utxo" \
- --change-address "$payment_addr" \
+cardano_cli conway transaction build \
+ --tx-in "$(cardano_cli conway query utxo --address "$(cat $keys_dir/multi-sig/script.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --tx-in-script-file $keys_dir/multi-sig/script.json \
+ --tx-in "$(cardano_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+ --change-address "$(cat $keys_dir/payment.addr)" \
  --proposal-file "$tx_cert_path" \
  --required-signer-hash "$(cat "$keys_dir/multi-sig/1.keyhash")" \
  --required-signer-hash "$(cat "$keys_dir/multi-sig/2.keyhash")" \
@@ -128,29 +99,29 @@ if [ ! -f "$tx_unsigned_path" ]; then
 fi
 
 # Create multisig witnesses
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/multi-sig/1.skey" \
   --out-file "$tx_path_stub-1.witness"
 
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/multi-sig/2.skey" \
   --out-file "$tx_path_stub-2.witness"
 
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/multi-sig/3.skey" \
   --out-file "$tx_path_stub-3.witness"
 
 # Create witness
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction
-container_cli conway transaction assemble \
+cardano_cli conway transaction assemble \
   --tx-body-file "$tx_unsigned_path" \
   --witness-file "$tx_path_stub-payment.witness" \
   --witness-file "$tx_path_stub-1.witness" \
@@ -167,4 +138,5 @@ fi
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+
+cardano_cli conway transaction submit --tx-file $tx_signed_path

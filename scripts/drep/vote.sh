@@ -46,39 +46,13 @@ if [ ! -f "$keys_dir/drep.skey" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
-
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
-
-# Helper function to get UTXO with validation
-get_utxo() {
-  local address=$1
-  local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
-  local utxo
-  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
-  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
-    echo "Error: No UTXO found at address: $address" >&2
-    exit 1
-  fi
-  echo "$utxo"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Voting on a governance action
 echo "Voting on $GA_TX_HASH with a $CHOICE."
 
-container_cli conway governance vote create \
+cardano_cli conway governance vote create \
   "--$CHOICE" \
   --governance-action-tx-id "$GA_TX_HASH" \
   --governance-action-index "$GA_TX_INDEX" \
@@ -96,13 +70,10 @@ fi
 
 echo "Building transaction"
 
-payment_addr=$(cat "$keys_dir/payment.addr")
-utxo=$(get_utxo "$payment_addr")
-
-container_cli conway transaction build \
-  --tx-in "$utxo" \
-  --change-address "$payment_addr" \
-  --vote-file "$tx_cert_path" \
+cardano_cli conway transaction build \
+  --tx-in "$(cardano_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
+  --change-address "$(cat $keys_dir/payment.addr)" \
+  --vote-file $tx_cert_path \
   --witness-override 2 \
   --out-file "$tx_unsigned_path"
 
@@ -114,19 +85,13 @@ fi
 
 echo "Signing transaction"
 
-container_cli conway transaction sign \
-  --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file "$keys_dir/drep.skey" \
-  --signing-key-file "$keys_dir/payment.skey" \
-  --out-file "$tx_signed_path"
-
-# Check signed transaction file was created
-if [ ! -f "$tx_signed_path" ]; then
-  echo "Error: Failed to create signed transaction file"
-  exit 1
-fi
+cardano_cli conway transaction sign \
+  --tx-body-file $tx_unsigned_path \
+  --signing-key-file $keys_dir/drep.skey \
+  --signing-key-file $keys_dir/payment.skey \
+  --out-file $tx_signed_path
 
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+cardano_cli conway transaction submit --tx-file $tx_signed_path

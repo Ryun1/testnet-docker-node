@@ -12,3 +12,6 @@ node-*/
 venv/
 __pycache__/
 *.pyc
+
+# Config file (user-specific, example is tracked)
+config/cardano-node-config.json
