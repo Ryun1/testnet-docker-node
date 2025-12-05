@@ -18,10 +18,29 @@ echo "   / / / _ \/ ___/ __/ __ \/ _ \/ ________/ / / / __ \/ ___/ //_/ _ \/ ___
 echo "  / / /  __(__  / /_/ / / /  __/ /_/_____/ /_/ / /_/ / /__/ ,< /  __/ /  /_____/ /|  / /_/ / /_/ /  __/ "
 echo " /_/  \___/____/\__/_/ /_/\___/\__/     /_____/\____/\___/_/|_|\___/_/        /_/ |_/\____/\__,_/\___/  "
 echo "                                                                                                        "                                                                                                 
-echo -e "${NC}"
-echo -e "${GREEN}Welcome to the Testnet Docker Node!${NC}"
-echo -e "${YELLOW}This script will help you set up and manage your Cardano testnet node(s).${NC}"
 echo
+
+# Check and display running nodes
+show_running_nodes() {
+  local running_nodes
+  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+  
+  if [ -n "$running_nodes" ]; then
+    echo -e "${CYAN}Currently running Cardano node(s):${NC}"
+    echo "$running_nodes" | while read -r container; do
+      # Extract network and version from container name (node-network-version-container)
+      local network_version=$(echo "$container" | sed 's/node-\(.*\)-container/\1/')
+      echo -e "  ${GREEN}✓${NC} ${CYAN}$container${NC} (${YELLOW}$network_version${NC})"
+    done
+    echo ""
+  else
+    echo -e "${YELLOW}No Cardano nodes are currently running.${NC}"
+    echo ""
+  fi
+}
+
+# Display running nodes
+show_running_nodes
 
 # Define the list of available networks
 available_networks=("mainnet" "preprod" "preview" "sanchonet")
@@ -103,6 +122,55 @@ if [ -z "$node_version" ]; then
   echo -e "${RED}Error: Node version not selected${NC}"
   exit 1
 fi
+
+# Check for running Cardano node containers
+check_running_nodes() {
+  local running_nodes
+  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+  
+  if [ -n "$running_nodes" ]; then
+    echo -e "${YELLOW}Warning: You have the following Cardano node(s) already running:${NC}"
+    echo "$running_nodes" | while read -r container; do
+      echo -e "  ${CYAN}- $container${NC}"
+    done
+    echo ""
+  else
+    echo -e "${GREEN}No Cardano nodes are currently running.${NC}"
+    echo ""
+  fi
+  
+  echo "$running_nodes"
+}
+
+# Check if the specific node is already running or exists
+check_duplicate_node() {
+  local target_container="node-$network-$node_version-container"
+  local is_running
+  local exists
+  
+  # Check if container is running
+  is_running=$(docker ps --format "{{.Names}}" | grep -E "^${target_container}$" || true)
+  
+  # Check if container exists (even if stopped)
+  exists=$(docker ps -a --format "{{.Names}}" | grep -E "^${target_container}$" || true)
+  
+  if [ -n "$is_running" ]; then
+    echo -e "${RED}Error: Node '$target_container' is already running!${NC}"
+    echo -e "${YELLOW}Please stop it first using: ./stop-nodes.sh${NC}"
+    echo -e "${YELLOW}Or use a different network/version combination.${NC}"
+    exit 1
+  elif [ -n "$exists" ]; then
+    echo -e "${YELLOW}Warning: Container '$target_container' exists but is not running.${NC}"
+    echo -e "${YELLOW}Removing existing container...${NC}"
+    docker rm -f "$target_container" 2>/dev/null || true
+  fi
+}
+
+# Check for running nodes and display them
+running_nodes=$(check_running_nodes)
+
+# Check if the specific node is already running
+check_duplicate_node
 
 # Assign a unique port for this version
 NODE_PORT=$(assign_port_for_version "$node_version")
