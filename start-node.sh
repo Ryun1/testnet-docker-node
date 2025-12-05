@@ -212,7 +212,15 @@ export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 
 # Substitute the variables in the docker-compose.yml file and start the Docker container
 echo -e "${CYAN}Starting the Docker container...${NC}"
-envsubst < docker-compose.yml | docker-compose -f - up -d --build
+# Use docker compose (plugin) if available, fallback to docker-compose (standalone)
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  envsubst < docker-compose.yml | docker compose -f - up -d --build
+elif command -v docker-compose >/dev/null 2>&1; then
+  envsubst < docker-compose.yml | docker-compose -f - up -d --build
+else
+  echo -e "${RED}Error: Neither 'docker compose' nor 'docker-compose' is available${NC}"
+  exit 1
+fi
 
 # Forward the logs to the terminal
 echo -e "${GREEN}Docker container logs:${NC}"
