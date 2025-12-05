@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Get the script's directory and project root
 script_dir=$(dirname "$0")
@@ -7,6 +8,12 @@ project_root=$(cd "$script_dir/../.." && pwd)
 # Define directory paths relative to project root
 keys_dir="$project_root/keys"
 scripts_dir="$project_root/scripts"
+
+# Check required template file exists
+if [ ! -f "$scripts_dir/multi-sig/multi-sig-template.json" ]; then
+  echo "Error: Multi-sig template file not found: $scripts_dir/multi-sig/multi-sig-template.json"
+  exit 1
+fi
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
@@ -20,7 +27,7 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
 }
 
 echo "Creating three keys to control a multi-sig script."

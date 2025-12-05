@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Get the script's directory and project root
 script_dir=$(dirname "$0")
@@ -6,6 +7,9 @@ project_root=$(cd "$script_dir/.." && pwd)
 
 # Define directory paths relative to project root
 keys_dir="$project_root/keys"
+
+# Create keys directory if it doesn't exist
+mkdir -p "$keys_dir"
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/helper/get-container.sh")"
@@ -15,9 +19,9 @@ if [ -z "$container_name" ]; then
   exit 1
 fi
 
-network=$(echo $container_name | cut -d'-' -f2)
+network=$(echo "$container_name" | cut -d'-' -f2)
 
-if [ $network = "mainnet" ]; then
+if [ "$network" = "mainnet" ]; then
   echo "These scripts are not secure and should not be used to create mainnet transactions!!"
   echo "Exiting."
   exit 0
@@ -27,7 +31,7 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
 }
 
 # Check if keys already exist

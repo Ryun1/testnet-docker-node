@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 METADATA_URL="https://buy-ryan-an-island.com"
@@ -17,6 +18,45 @@ tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
+# Check required files exist
+if [ ! -f "$keys_dir/multi-sig/script.addr" ]; then
+  echo "Error: Multi-sig script address not found: $keys_dir/multi-sig/script.addr"
+  echo "Please run scripts/multi-sig/generate-keys-and-script.sh first"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/multi-sig/script.json" ]; then
+  echo "Error: Multi-sig script JSON not found: $keys_dir/multi-sig/script.json"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/payment.addr" ]; then
+  echo "Error: Payment address file not found: $keys_dir/payment.addr"
+  echo "Please run scripts/generate-keys.sh first"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/stake.vkey" ]; then
+  echo "Error: Stake verification key not found: $keys_dir/stake.vkey"
+  exit 1
+fi
+
+for i in 1 2 3; do
+  if [ ! -f "$keys_dir/multi-sig/$i.skey" ]; then
+    echo "Error: Multi-sig signing key $i not found: $keys_dir/multi-sig/$i.skey"
+    exit 1
+  fi
+  if [ ! -f "$keys_dir/multi-sig/$i.keyhash" ]; then
+    echo "Error: Multi-sig keyhash $i not found: $keys_dir/multi-sig/$i.keyhash"
+    exit 1
+  fi
+done
+
+if [ ! -f "$keys_dir/payment.skey" ]; then
+  echo "Error: Payment signing key not found: $keys_dir/payment.skey"
+  exit 1
+fi
+
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
 
@@ -29,7 +69,21 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
+}
+
+# Helper function to get UTXO with validation
+get_utxo() {
+  local address=$1
+  local utxo_output
+  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  local utxo
+  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+    echo "Error: No UTXO found at address: $address" >&2
+    exit 1
+  fi
+  echo "$utxo"
 }
 
 # Building, signing and submitting an info governance action
@@ -37,57 +91,80 @@ echo "Creating and submitting info governance action, using the multi-sig's ada.
 
 container_cli conway governance action create-info \
   --testnet \
-  --governance-action-deposit $(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
-  --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
+  --governance-action-deposit "$(container_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit')" \
+  --deposit-return-stake-verification-key-file "$keys_dir/stake.vkey" \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --out-file "$tx_cert_path"
 
+# Check certificate file was created
+if [ ! -f "$tx_cert_path" ]; then
+  echo "Error: Failed to create certificate file"
+  exit 1
+fi
+
 echo "Building transaction"
 
+script_addr=$(cat "$keys_dir/multi-sig/script.addr")
+payment_addr=$(cat "$keys_dir/payment.addr")
+script_utxo=$(get_utxo "$script_addr")
+payment_utxo=$(get_utxo "$payment_addr")
+
 container_cli conway transaction build \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/multi-sig/script.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --tx-in-script-file $keys_dir/multi-sig/script.json \
- --tx-in "$(container_cli conway query utxo --address "$(cat $keys_dir/payment.addr)" --out-file /dev/stdout | jq -r 'keys[0]')" \
- --change-address "$(cat $keys_dir/payment.addr)" \
+ --tx-in "$script_utxo" \
+ --tx-in-script-file "$keys_dir/multi-sig/script.json" \
+ --tx-in "$payment_utxo" \
+ --change-address "$payment_addr" \
  --proposal-file "$tx_cert_path" \
- --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
- --required-signer-hash "$(cat $keys_dir/multi-sig/2.keyhash)" \
- --required-signer-hash "$(cat $keys_dir/multi-sig/3.keyhash)" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/1.keyhash")" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/2.keyhash")" \
+ --required-signer-hash "$(cat "$keys_dir/multi-sig/3.keyhash")" \
  --out-file "$tx_unsigned_path"
+
+# Check transaction file was created
+if [ ! -f "$tx_unsigned_path" ]; then
+  echo "Error: Failed to create unsigned transaction file"
+  exit 1
+fi
 
 # Create multisig witnesses
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/1.skey \
+  --signing-key-file "$keys_dir/multi-sig/1.skey" \
   --out-file "$tx_path_stub-1.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/2.skey \
+  --signing-key-file "$keys_dir/multi-sig/2.skey" \
   --out-file "$tx_path_stub-2.witness"
 
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/multi-sig/3.skey \
+  --signing-key-file "$keys_dir/multi-sig/3.skey" \
   --out-file "$tx_path_stub-3.witness"
 
 # Create witness
 container_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/payment.skey \
+  --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction
 container_cli conway transaction assemble \
   --tx-body-file "$tx_unsigned_path" \
   --witness-file "$tx_path_stub-payment.witness" \
+  --witness-file "$tx_path_stub-1.witness" \
   --witness-file "$tx_path_stub-2.witness" \
   --witness-file "$tx_path_stub-3.witness" \
-  --witness-file "$tx_path_stub-3.witness" \
   --out-file "$tx_signed_path"
+
+# Check signed transaction file was created
+if [ ! -f "$tx_signed_path" ]; then
+  echo "Error: Failed to create signed transaction file"
+  exit 1
+fi
 
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file $tx_signed_path
+container_cli conway transaction submit --tx-file "$tx_signed_path"

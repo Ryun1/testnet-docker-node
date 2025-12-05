@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Get the script's directory and project root
 script_dir=$(dirname "$0")
@@ -19,13 +20,16 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
 }
 
 # Get the network name
 
 # Split the container name and extract the second part
-network=$(echo $container_name | cut -d'-' -f2)
+network=$(echo "$container_name" | cut -d'-' -f2)
+
+# Create dumps directory if it doesn't exist
+mkdir -p "$dumps_dir/$network"
 
 # Dumping out CC state
 echo "Dumping constitutional committee state."

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 spo_id="pool104flte3y29dprxcntacsuyznhduvlaza38gvp8yyhy2vvmfenxa" # keyhash of the SPO
@@ -16,6 +17,28 @@ tx_cert_path="$tx_path_stub.cert"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
+# Check required files exist
+if [ ! -f "$keys_dir/payment.addr" ]; then
+  echo "Error: Payment address file not found: $keys_dir/payment.addr"
+  echo "Please run scripts/generate-keys.sh first"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/payment.skey" ]; then
+  echo "Error: Payment signing key not found: $keys_dir/payment.skey"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/stake.vkey" ]; then
+  echo "Error: Stake verification key not found: $keys_dir/stake.vkey"
+  exit 1
+fi
+
+if [ ! -f "$keys_dir/stake.skey" ]; then
+  echo "Error: Stake signing key not found: $keys_dir/stake.skey"
+  exit 1
+fi
+
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
 
@@ -28,31 +51,66 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
+}
+
+# Helper function to get UTXO with validation
+get_utxo() {
+  local address=$1
+  local utxo_output
+  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  local utxo
+  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+    echo "Error: No UTXO found at address: $address" >&2
+    exit 1
+  fi
+  echo "$utxo"
 }
 
 # Delegating to an SPO
 echo "Delegating you to SPO: $spo_id."
 
 container_cli conway stake-address stake-delegation-certificate \
- --stake-verification-key-file $keys_dir/stake.vkey \
+ --stake-verification-key-file "$keys_dir/stake.vkey" \
  --stake-pool-id "$spo_id" \
  --out-file "$tx_cert_path"
 
+# Check certificate file was created
+if [ ! -f "$tx_cert_path" ]; then
+  echo "Error: Failed to create certificate file"
+  exit 1
+fi
+
+payment_addr=$(cat "$keys_dir/payment.addr")
+utxo=$(get_utxo "$payment_addr")
+
 container_cli conway transaction build \
  --witness-override 2 \
- --tx-in $(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
- --change-address $(cat $keys_dir/payment.addr) \
+ --tx-in "$utxo" \
+ --change-address "$payment_addr" \
  --certificate-file "$tx_cert_path" \
  --out-file "$tx_unsigned_path"
 
+# Check transaction file was created
+if [ ! -f "$tx_unsigned_path" ]; then
+  echo "Error: Failed to create unsigned transaction file"
+  exit 1
+fi
+
 container_cli conway transaction sign \
  --tx-body-file "$tx_unsigned_path" \
- --signing-key-file $keys_dir/payment.skey \
- --signing-key-file $keys_dir/stake.skey \
+ --signing-key-file "$keys_dir/payment.skey" \
+ --signing-key-file "$keys_dir/stake.skey" \
  --out-file "$tx_signed_path"
+
+# Check signed transaction file was created
+if [ ! -f "$tx_signed_path" ]; then
+  echo "Error: Failed to create signed transaction file"
+  exit 1
+fi
 
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file $tx_signed_path
+container_cli conway transaction submit --tx-file "$tx_signed_path"

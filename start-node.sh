@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Define colors
 RED='\033[0;31m'
