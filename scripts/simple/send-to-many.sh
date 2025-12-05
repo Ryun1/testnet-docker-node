@@ -8,7 +8,7 @@ METADATA_FILE="./keys/metadata-testnet.json"
 
 # Define directory paths
 keys_dir="./keys"
-txs_dir="./txs/simple/send-to-many"
+txs_dir="./txs/simple"
 tx_path_stub="$txs_dir/send-to-many"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"

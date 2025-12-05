@@ -6,7 +6,7 @@ LOVELACE_AMOUNT=10000000
 
 # Define directory paths
 keys_dir="./keys"
-txs_dir="./txs"
+txs_dir="./txs/simple"
 tx_path_stub="$txs_dir/treasury-donate"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
