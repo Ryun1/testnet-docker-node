@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Stop all cardano node containers matching the pattern node-*-*-container
 # This handles versioned containers (e.g., node-preprod-10.5.3-container)

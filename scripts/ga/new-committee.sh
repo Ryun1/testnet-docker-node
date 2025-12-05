@@ -8,16 +8,17 @@ METADATA_URL="ipfs://bafkreia4ahcsnfegacpxypsgo2gpno5did6grm7ipqa6k2kivzsctlwlau
 METADATA_HASH="fd23ef0b70a2feaf8229aa1df79ed77f18b07881e35237a569730b2b261b99fc"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/ga"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/ga"
 tx_path_stub="$txs_dir/new-committee"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"

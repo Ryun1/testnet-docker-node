@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Get the script's directory
 script_dir=$(dirname "$0")
@@ -15,7 +16,7 @@ echo "Using running container: $container_name"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+  docker exec -ti "$container_name" cardano-cli "$@"
 }
 
 # Query the tip of the blockchain as observed by the node

@@ -9,35 +9,118 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v1
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-    - name: Install Docker Compose
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y docker-compose
-
-    - name: Start Preprod node, wait 30s then stop node
+    - name: Verify Docker Compose
       shell: bash
       run: |
-        printf "1\n" | /bin/bash ./start-node.sh 2>&1 | tee script_output.txt &
-        sleep 30
-        /bin/bash ./stop-nodes.sh
+        set -euo pipefail
+        if docker compose version >/dev/null 2>&1; then
+          echo "Using Docker Compose plugin"
+          docker compose version
+        elif command -v docker-compose >/dev/null 2>&1; then
+          echo "Using docker-compose standalone"
+          docker-compose --version
+        else
+          echo "Error: Docker Compose not available"
+          exit 1
+        fi
 
-    - name: Start Preview node, wait 30s then stop node
+    - name: Test Preprod node
+      shell: bash
+      timeout-minutes: 10
+      run: |
+        set -euo pipefail
+        printf "2\n1\n" | ./start-node.sh 2>&1 | tee preprod_output.txt &
+        START_PID=$!
+        sleep 30
+        if ! kill -0 $START_PID 2>/dev/null; then
+          echo "Error: start-node.sh process died unexpectedly"
+          exit 1
+        fi
+        ./stop-nodes.sh
+        wait $START_PID || true
+        if [ -f preprod_output.txt ]; then
+          echo "=== Preprod Node Output ==="
+          cat preprod_output.txt
+        fi
+
+    - name: Cleanup after Preprod
+      if: always()
       shell: bash
       run: |
-        printf "2\n" | /bin/bash ./start-node.sh 2>&1 | tee script_output.txt &
-        sleep 30
-        /bin/bash ./stop-nodes.sh
+        set -euo pipefail
+        ./stop-nodes.sh || true
+        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
 
-    - name: Start SanchoNet node, wait 30s then stop node
+    - name: Test Preview node
+      shell: bash
+      timeout-minutes: 3
+      run: |
+        set -euo pipefail
+        printf "3\n1\n" | ./start-node.sh 2>&1 | tee preview_output.txt &
+        START_PID=$!
+        sleep 30
+        if ! kill -0 $START_PID 2>/dev/null; then
+          echo "Error: start-node.sh process died unexpectedly"
+          exit 1
+        fi
+        ./stop-nodes.sh
+        wait $START_PID || true
+        if [ -f preview_output.txt ]; then
+          echo "=== Preview Node Output ==="
+          cat preview_output.txt
+        fi
+
+    - name: Cleanup after Preview
+      if: always()
       shell: bash
       run: |
-        printf "3\n" | /bin/bash ./start-node.sh 2>&1 | tee script_output.txt &
+        set -euo pipefail
+        ./stop-nodes.sh || true
+        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
+
+    - name: Test SanchoNet node
+      shell: bash
+      timeout-minutes: 3
+      run: |
+        set -euo pipefail
+        printf "4\n1\n" | ./start-node.sh 2>&1 | tee sancho_output.txt &
+        START_PID=$!
         sleep 30
-        /bin/bash ./stop-nodes.sh
+        if ! kill -0 $START_PID 2>/dev/null; then
+          echo "Error: start-node.sh process died unexpectedly"
+          exit 1
+        fi
+        ./stop-nodes.sh
+        wait $START_PID || true
+        if [ -f sancho_output.txt ]; then
+          echo "=== SanchoNet Node Output ==="
+          cat sancho_output.txt
+        fi
+
+    - name: Final cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./stop-nodes.sh || true
+        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
+        docker system prune -f || true
+
+    - name: Upload logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: node-logs
+        path: |
+          *_output.txt
+          script_output.txt
+        retention-days: 7

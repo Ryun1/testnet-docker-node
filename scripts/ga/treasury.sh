@@ -11,18 +11,17 @@ METADATA_HASH="91a36ac3cc4b563a407e7a86139fee9e7e2b2a6511617b96ba3165ccddf5a5b3"
 # treat unset variables as an error, and fail if any command in a pipeline fails
 set -euo pipefail
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/ga"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/ga"
 tx_path_stub="$txs_dir/treasury-withdrawal"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
-
-guardrails_script_path="./config/guardrails-script.plutus"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
@@ -33,6 +32,11 @@ if [ -z "$container_name" ]; then
 fi
 
 echo "Using running container: $container_name"
+
+# Extract network and version from container name (format: node-network-version-container)
+network=$(echo $container_name | cut -d'-' -f2)
+version=$(echo $container_name | cut -d'-' -f3)
+guardrails_script_path="$project_root/node-$network-$version/config/guardrails-script.plutus"
 
 # Function to execute cardano-cli commands inside the container
 container_cli() {

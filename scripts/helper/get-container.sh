@@ -1,4 +1,5 @@
 #!/bin/bash
+# set -euo pipefail
 
 # Get the list of running containers
 running_containers=$(docker ps --format '{{.Names}}')

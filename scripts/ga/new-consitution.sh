@@ -10,16 +10,17 @@ METADATA_URL="https://raw.githubusercontent.com/IntersectMBO/governance-actions/
 METADATA_HASH="4b2649556c838497ee2923bdff0f05b48fb2f0c3c5cceb450200f8bd6868ac5b"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/ga"
+# Get the script's directory and project root
+script_dir=$(dirname "$0")
+project_root=$(cd "$script_dir/../.." && pwd)
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/ga"
 tx_path_stub="$txs_dir/new-constitution"
 tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
-
-# Get the script's directory
-script_dir=$(dirname "$0")
 
 # Get the container name from the get-container script
 container_name="$("$script_dir/../helper/get-container.sh")"
@@ -36,12 +37,12 @@ container_cli() {
   docker exec -ti $container_name cardano-cli "$@"
 }
 
-# echo "Finding the previous Constitution GA to reference"
+echo "Finding the previous Constitution GA to reference"
 
-# GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
+GOV_STATE=$(container_cli conway query gov-state | jq -r '.nextRatifyState.nextEnactState.prevGovActionIds')
 
-# PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Constitution.txId')
-# PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Constitution.govActionIx')
+PREV_GA_TX_HASH=$(echo "$GOV_STATE" | jq -r '.Constitution.txId')
+PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.Constitution.govActionIx')
 
 echo "Previous Constitution GA Tx Hash: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
@@ -59,10 +60,9 @@ container_cli conway governance action create-constitution \
   --constitution-hash "$NEW_CONSTITUTION_ANCHOR_HASH" \
   --check-constitution-hash \
   --constitution-script-hash "$NEW_CONSTITUTION_SCRIPT_HASH" \
+  --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
+  --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"
-
-  # --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
-  # --prev-governance-action-index "$PREV_GA_INDEX" \
 
 echo "Building transaction"
 
@@ -75,7 +75,7 @@ container_cli conway transaction build \
 echo "Signing transaction"
 
 container_cli conway transaction sign \
- --tx-body-file "$tx_unigned_path" \
+ --tx-body-file "$tx_unsigned_path" \
  --signing-key-file $keys_dir/payment.skey \
  --out-file "$tx_signed_path"
 
