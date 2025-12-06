@@ -20,6 +20,28 @@ echo " /_/  \___/____/\__/_/ /_/\___/\__/     /_____/\____/\___/_/|_|\___/_/    
 echo "                                                                                                        "                                                                                                 
 echo
 
+# Function to show currently running nodes
+show_running_nodes() {
+  local running_nodes
+
+  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+
+  if [ -n "$running_nodes" ]; then
+    echo -e "${CYAN}Currently running Cardano node(s):${NC}"
+    echo "$running_nodes" | while read -r container; do
+      # Extract network and version from container name (node-network-version-container)
+      local network_version=$(echo "$container" | sed 's/node-\(.*\)-container/\1/')
+      echo -e "  ${GREEN}✓${NC} ${CYAN}$container${NC} (${YELLOW}$network_version${NC})"
+    done
+    echo ""
+  else
+    echo -e "${YELLOW}No Cardano nodes are currently running.${NC}"
+    echo ""
+  fi
+}
+
+# Show running nodes at startup
+show_running_nodes
 
 # Prompt the user to select connection type first
 echo -e "${CYAN}How would you like to connect to a Cardano node?${NC}"
@@ -133,17 +155,6 @@ fi
 # Continue with Docker node setup
 echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
-
-# Prompt the user to select a network
-echo -e "${CYAN}Please select a network:${NC}"
-select network in "${available_networks[@]}"; do
-  if [ -n "$network" ]; then
-    echo -e "${GREEN}You have selected: $network${NC}"
-    break
-  else
-    echo -e "${RED}Invalid selection. Please try again.${NC}"
-  fi
-done
 
 # Define the list of available node versions
 available_versions=("10.5.1" "10.5.3" "10.6.1")

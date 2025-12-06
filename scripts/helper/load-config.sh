@@ -19,13 +19,13 @@ NC='\033[0m' # No color
 # 5. Docker mode: Auto-select container (default)
 
 # Check for explicit container name (highest priority)
-if [ -n "$CARDANO_CONTAINER_NAME" ]; then
+if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
   export NODE_MODE="docker"
   return 0
 fi
 
 # Check for force Docker mode
-if [ "$CARDANO_FORCE_DOCKER" = "true" ] || [ "$CARDANO_FORCE_DOCKER" = "1" ]; then
+if [ "${CARDANO_FORCE_DOCKER:-}" = "true" ] || [ "${CARDANO_FORCE_DOCKER:-}" = "1" ]; then
   export NODE_MODE="docker"
   return 0
 fi
@@ -43,7 +43,7 @@ fi
 
 # Safety check: If docker-compose.yml exists but no containers are running and no socket is set,
 # user probably forgot to start Docker
-if [ -f "$docker_compose_file" ] && [ -z "$running_containers" ] && [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
+if [ -f "$docker_compose_file" ] && [ -z "$running_containers" ] && [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
   echo "Error: Docker setup detected (docker-compose.yml exists) but no containers are running." >&2
   echo "Please start your Docker containers first:" >&2
   echo "  ./start-node.sh" >&2
@@ -52,7 +52,7 @@ fi
 
 # Check if we need interactive selection
 # This happens when both Docker containers and external socket are available
-if [ -n "$CARDANO_NODE_SOCKET_PATH" ] && [ -n "$running_containers" ]; then
+if [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ] && [ -n "$running_containers" ]; then
     # Both Docker containers and external socket are available - let user choose
     # Check if we're in an interactive terminal
     if [ -t 0 ] && [ -t 1 ]; then
@@ -116,7 +116,7 @@ fi
 
 # Check for external node configuration (environment variables)
 # External nodes use CARDANO_NODE_SOCKET_PATH and CARDANO_NODE_NETWORK_ID
-if [ -n "$CARDANO_NODE_SOCKET_PATH" ]; then
+if [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
   # Expand ~ to home directory
   socket_path="${CARDANO_NODE_SOCKET_PATH/#\~/$HOME}"
   
@@ -158,13 +158,13 @@ if [ -n "$CARDANO_NODE_SOCKET_PATH" ]; then
   export NODE_SOCKET_PATH="$socket_path"
   
   # CARDANO_NODE_NETWORK_ID must be set for external nodes
-  if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
     echo "Error: CARDANO_NODE_NETWORK_ID must be set when using CARDANO_NODE_SOCKET_PATH" >&2
     exit 1
   fi
   
   # Validate network ID is numeric
-  if ! [[ "$CARDANO_NODE_NETWORK_ID" =~ ^[0-9]+$ ]]; then
+  if ! [[ "${CARDANO_NODE_NETWORK_ID:-}" =~ ^[0-9]+$ ]]; then
     echo "Error: CARDANO_NODE_NETWORK_ID must be a number." >&2
     exit 1
   fi
@@ -172,15 +172,15 @@ if [ -n "$CARDANO_NODE_SOCKET_PATH" ]; then
   export CARDANO_NODE_NETWORK_ID
   
   # Block mainnet for external nodes
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ]; then
+  if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ]; then
     echo "Error: Mainnet connections via external sockets are not allowed for security reasons." >&2
     echo "Please use Docker mode for mainnet, or set CARDANO_NODE_NETWORK_ID to a testnet value (1, 2, or 4)." >&2
     exit 1
   fi
   
   # Derive CARDANO_NETWORK from network ID if not set
-  if [ -z "$CARDANO_NETWORK" ]; then
-    case "$CARDANO_NODE_NETWORK_ID" in
+  if [ -z "${CARDANO_NETWORK:-}" ]; then
+    case "${CARDANO_NODE_NETWORK_ID:-}" in
       764824073) export CARDANO_NETWORK="mainnet" ;;
       1) export CARDANO_NETWORK="preprod" ;;
       2) export CARDANO_NETWORK="preview" ;;

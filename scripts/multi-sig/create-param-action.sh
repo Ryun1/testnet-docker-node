@@ -61,6 +61,21 @@ fi
 # Source the cardano-cli wrapper
 source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
+# Helper function to get UTXO with validation
+get_utxo() {
+  local address=$1
+  local utxo_output
+  utxo_output=$(cardano_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  local utxo
+  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+    echo "Error: No UTXO found at address: $address" >&2
+    exit 1
+  fi
+  echo "$utxo"
+}
+
+
 echo "\nPull the latest guardrails script."
 # Use network-specific URL (mainnet uses world.dev, testnets use play.dev)
 if [ "$network" = "mainnet" ]; then

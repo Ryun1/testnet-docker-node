@@ -3,11 +3,34 @@
 # Unified wrapper for cardano-cli that supports both Docker and external node modes
 # This script should be sourced by other scripts
 
+# Define colors
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No color
+
 # Get the script's directory (works when sourced)
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+base_dir="$(cd "$script_dir/../.." && pwd)"
 
 # Load configuration
 source "$script_dir/load-config.sh"
+
+# Function to convert host paths to container paths for Docker mode
+convert_to_container_path() {
+  local path="$1"
+  if [ "$NODE_MODE" = "docker" ]; then
+    # Convert project root paths to container paths
+    # ./txs -> /txs
+    # ./keys -> /keys
+    # ./dumps -> /dumps
+    path=$(echo "$path" | sed "s|^$base_dir/txs|/txs|")
+    path=$(echo "$path" | sed "s|^$base_dir/keys|/keys|")
+    path=$(echo "$path" | sed "s|^$base_dir/dumps|/dumps|")
+  fi
+  echo "$path"
+}
 
 # Check cardano-cli version and display node info (only once, when wrapper is sourced)
 check_cardano_cli_version() {
@@ -21,17 +44,17 @@ check_cardano_cli_version() {
     # Clean up version string (remove "cardano-cli" prefix if present)
     cli_version=$(echo "$cli_version" | sed 's/^cardano-cli //')
     
-    if [ -n "$CARDANO_NETWORK" ]; then
-      echo "Info: External node | $CARDANO_NETWORK | cardano-cli $cli_version" >&2
+    if [ -n "${CARDANO_NETWORK:-}" ]; then
+      echo -e "${CYAN}Info:${NC} ${YELLOW}External node${NC} | ${GREEN}$CARDANO_NETWORK${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
     else
-      echo "Info: External node | network ID: $CARDANO_NODE_NETWORK_ID | cardano-cli $cli_version" >&2
+      echo -e "${CYAN}Info:${NC} ${YELLOW}External node${NC} | network ID: ${GREEN}${CARDANO_NODE_NETWORK_ID:-}${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
     fi
   elif [ "$NODE_MODE" = "docker" ]; then
     # Get container name (only if explicitly set to avoid interactive selection)
     local container_name=""
-    if [ -n "$CARDANO_CONTAINER_NAME" ]; then
+    if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
       container_name="$CARDANO_CONTAINER_NAME"
-    elif [ -n "$CARDANO_CONTAINER_NAME_OVERRIDE" ]; then
+    elif [ -n "${CARDANO_CONTAINER_NAME_OVERRIDE:-}" ]; then
       container_name="$CARDANO_CONTAINER_NAME_OVERRIDE"
     else
       # Only try to get container name if there's exactly one running container (non-interactive)
@@ -56,9 +79,9 @@ check_cardano_cli_version() {
       cli_version=$(echo "$cli_version" | sed 's/^cardano-cli //')
       
       if [ -n "$network" ] && [ -n "$node_version" ]; then
-        echo "Info: node v$node_version | $network | cardano-cli $cli_version" >&2
+        echo -e "${CYAN}Info:${NC} ${YELLOW}node v$node_version${NC} | ${GREEN}$network${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
       else
-        echo "Info: Docker container: $container_name | cardano-cli $cli_version" >&2
+        echo -e "${CYAN}Info:${NC} ${YELLOW}Docker container: $container_name${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
       fi
     fi
   fi
@@ -68,7 +91,7 @@ check_cardano_cli_version() {
 get_container_name() {
   if [ "$NODE_MODE" = "docker" ]; then
     # Check for direct container name specification
-    if [ -n "$CARDANO_CONTAINER_NAME" ]; then
+    if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
       # Verify the container exists and is running
       if docker ps --format '{{.Names}}' | grep -q "^${CARDANO_CONTAINER_NAME}$"; then
         echo "$CARDANO_CONTAINER_NAME"
@@ -118,14 +141,14 @@ cardano_cli() {
   
   # Determine network flag if needed
   if [ "$needs_network_flag" = true ]; then
-    if [ -n "$CARDANO_NODE_NETWORK_ID" ]; then
-      if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ]; then
+    if [ -n "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+      if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ]; then
         is_mainnet=true
         network_flag_args=("--mainnet")
       else
         network_flag_args=("--testnet-magic" "$CARDANO_NODE_NETWORK_ID")
       fi
-    elif [ -n "$CARDANO_NETWORK" ]; then
+    elif [ -n "${CARDANO_NETWORK:-}" ]; then
       case "$CARDANO_NETWORK" in
         mainnet) 
           is_mainnet=true
@@ -147,7 +170,11 @@ cardano_cli() {
   if [ "$NODE_MODE" = "external" ]; then
     # External node mode: use local cardano-cli with socket
     # Set socket path via environment variable (works with all cardano-cli versions)
-    CARDANO_NODE_SOCKET_PATH="$NODE_SOCKET_PATH" cardano-cli "${network_flag_args[@]}" "$@"
+    if [ ${#network_flag_args[@]} -gt 0 ]; then
+      CARDANO_NODE_SOCKET_PATH="$NODE_SOCKET_PATH" cardano-cli "${network_flag_args[@]}" "$@"
+    else
+      CARDANO_NODE_SOCKET_PATH="$NODE_SOCKET_PATH" cardano-cli "$@"
+    fi
   else
     # Docker mode: execute inside container
     local container_name=$(get_container_name)
@@ -155,7 +182,28 @@ cardano_cli() {
       echo "Error: Failed to determine a running container." >&2
       exit 1
     fi
-    docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "$@"
+    
+    # Convert file paths in arguments to container paths
+    # Look for file path arguments (those that contain the base directory path)
+    local converted_args=()
+    local prev_arg=""
+    for arg in "$@"; do
+      # Check if this argument contains the base directory path (it's a host file path)
+      if [[ "$arg" == "$base_dir"* ]]; then
+        # Convert host path to container path
+        converted_args+=("$(convert_to_container_path "$arg")")
+      else
+        # Not a host path, add as-is
+        converted_args+=("$arg")
+      fi
+      prev_arg="$arg"
+    done
+    
+    if [ ${#network_flag_args[@]} -gt 0 ]; then
+      docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
+    else
+      docker exec -ti "$container_name" cardano-cli "${converted_args[@]}"
+    fi
   fi
 }
 

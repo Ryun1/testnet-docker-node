@@ -36,11 +36,8 @@ source "$script_dir/../helper/cardano-cli-wrapper.sh"
 # Send ada to the multisig payment script
 echo "Sending $LOVELACE_AMOUNT lovelace to $ADDRESS."
 
-payment_addr=$(cat "$keys_dir/payment.addr")
-utxo=$(get_utxo "$payment_addr")
 
 echo "Building transaction"
-
 
 cardano_cli conway transaction build \
  --tx-in $(cardano_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
