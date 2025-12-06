@@ -15,20 +15,9 @@ if [ ! -f "$scripts_dir/multi-sig/multi-sig-template.json" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 echo "Creating three keys to control a multi-sig script."
 
@@ -36,28 +25,29 @@ echo "Creating three keys to control a multi-sig script."
 mkdir -p "$keys_dir/multi-sig"
 
 # Key 1
-container_cli address key-gen \
- --verification-key-file "$keys_dir/multi-sig/1.vkey" \
- --signing-key-file "$keys_dir/multi-sig/1.skey"
 
-container_cli address key-hash \
-  --payment-verification-key-file "$keys_dir/multi-sig/1.vkey" > "$keys_dir/multi-sig/1.keyhash"
+cardano_cli address key-gen \
+ --verification-key-file keys/multi-sig/1.vkey \
+ --signing-key-file keys/multi-sig/1.skey
+
+cardano_cli address key-hash \
+  --payment-verification-key-file keys/multi-sig/1.vkey > keys/multi-sig/1.keyhash
 
 # Key 2
-container_cli address key-gen \
- --verification-key-file "$keys_dir/multi-sig/2.vkey" \
- --signing-key-file "$keys_dir/multi-sig/2.skey"
+cardano_cli address key-gen \
+ --verification-key-file keys/multi-sig/2.vkey \
+ --signing-key-file keys/multi-sig/2.skey
 
-container_cli address key-hash \
-  --payment-verification-key-file "$keys_dir/multi-sig/2.vkey" > "$keys_dir/multi-sig/2.keyhash"
+cardano_cli address key-hash \
+  --payment-verification-key-file keys/multi-sig/2.vkey > keys/multi-sig/2.keyhash
 
 # Key 3
-container_cli address key-gen \
- --verification-key-file "$keys_dir/multi-sig/3.vkey" \
- --signing-key-file "$keys_dir/multi-sig/3.skey"
+cardano_cli address key-gen \
+ --verification-key-file keys/multi-sig/3.vkey \
+ --signing-key-file keys/multi-sig/3.skey
 
-container_cli address key-hash \
-  --payment-verification-key-file "$keys_dir/multi-sig/3.vkey" > "$keys_dir/multi-sig/3.keyhash"
+cardano_cli address key-hash \
+  --payment-verification-key-file keys/multi-sig/3.vkey > keys/multi-sig/3.keyhash
 
 echo "Copying the script template."
 
@@ -74,7 +64,7 @@ jq --arg kh1 "$(tr -d '\r' < "$keys_dir/multi-sig/1.keyhash")" \
 
 echo "Creating script address."
 
-container_cli address build \
+cardano_cli address build \
   --payment-script-file "$keys_dir/multi-sig/script.json" \
   --out-file "$keys_dir/multi-sig/script.addr"
 

@@ -50,26 +50,15 @@ if [ ! -f "$txs_dir/metadata.json" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Helper function to get UTXO with validation
 get_utxo() {
   local address=$1
   local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  utxo_output=$(cardano_cli conway query utxo --address "$address" --out-file /dev/stdout)
   local utxo
   utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
   if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
@@ -79,30 +68,26 @@ get_utxo() {
   echo "$utxo"
 }
 
+
 echo "Building DRep Update Certificate"
 
-container_cli conway governance drep update-certificate \
- --drep-script-hash "$(cat "$txs_dir/drep-one-sig.id")" \
- --out-file "$tx_cert_path"
-
-# Check certificate file was created
-if [ ! -f "$tx_cert_path" ]; then
-  echo "Error: Failed to create certificate file"
-  exit 1
-fi
+cardano_cli conway governance drep update-certificate \
+ --drep-script-hash $(cat $txs_dir/drep-one-sig.id) \
+ --out-file $tx_cert_path
 
 echo "Building transaction"
 
 payment_addr=$(cat "$keys_dir/payment.addr")
 utxo=$(get_utxo "$payment_addr")
 
-container_cli conway transaction build \
- --tx-in "$utxo" \
- --change-address "$payment_addr" \
- --required-signer-hash "$(cat "$keys_dir/multi-sig/1.keyhash")" \
- --certificate-file "$tx_cert_path" \
- --certificate-script-file "$txs_dir/drep-one-sig.json" \
- --metadata-json-file "$txs_dir/metadata.json" \
+
+cardano_cli conway transaction build \
+ --tx-in $(cardano_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
+ --change-address $(cat $keys_dir/payment.addr) \
+ --required-signer-hash "$(cat $keys_dir/multi-sig/1.keyhash)" \
+ --certificate-file $tx_cert_path \
+ --certificate-script-file $txs_dir/drep-one-sig.json \
+ --metadata-json-file $txs_dir/metadata.json \
  --out-file "$tx_unsigned_path"
 
 # Check transaction file was created
@@ -112,19 +97,19 @@ if [ ! -f "$tx_unsigned_path" ]; then
 fi
 
 # Create multisig witnesses
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/multi-sig/1.skey" \
   --out-file "$tx_path_stub-1.witness"
 
 # Create witness
-container_cli conway transaction witness \
+cardano_cli conway transaction witness \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_path_stub-payment.witness"
 
 # Assemble Transaction
-container_cli conway transaction assemble \
+cardano_cli conway transaction assemble \
   --tx-body-file "$tx_unsigned_path" \
   --witness-file "$tx_path_stub-payment.witness" \
   --witness-file "$tx_path_stub-1.witness" \
@@ -139,4 +124,5 @@ fi
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+
+cardano_cli conway transaction submit --tx-file $tx_signed_path

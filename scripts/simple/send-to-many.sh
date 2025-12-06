@@ -30,34 +30,9 @@ if [ ! -f "$keys_dir/payment.skey" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
-
-# Helper function to get UTXO with validation
-get_utxo() {
-  local address=$1
-  local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
-  local utxo
-  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
-  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
-    echo "Error: No UTXO found at address: $address" >&2
-    exit 1
-  fi
-  echo "$utxo"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Check if CSV file exists
 if [ ! -f "$CSV_FILE" ]; then
@@ -97,8 +72,15 @@ echo "Found ${#addresses[@]} addresses in CSV file"
 echo "Sending $LOVELACE_AMOUNT lovelace to each address"
 
 # Get UTXO from payment address
-payment_addr=$(cat "$keys_dir/payment.addr")
-utxo=$(get_utxo "$payment_addr")
+
+payment_addr=$(cat $keys_dir/payment.addr)
+utxo_output=$(cardano_cli conway query utxo --address "$payment_addr" --out-file /dev/stdout)
+utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+
+if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+  echo "Error: No UTXO found at payment address"
+  exit 1
+fi
 
 echo "Using UTXO: $utxo"
 
@@ -133,7 +115,7 @@ fi
 
 build_args+=("--out-file" "$tx_unsigned_path")
 
-container_cli "${build_args[@]}"
+cardano_cli "${build_args[@]}"
 
 # Check transaction file was created
 if [ ! -f "$tx_unsigned_path" ]; then
@@ -144,7 +126,7 @@ fi
 # Sign the transaction
 echo "Signing transaction"
 
-container_cli conway transaction sign \
+cardano_cli conway transaction sign \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/payment.skey" \
   --out-file "$tx_signed_path"
@@ -158,7 +140,8 @@ fi
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+
+cardano_cli conway transaction submit --tx-file $tx_signed_path
 
 echo "Transaction submitted successfully!"
 echo "Sent $LOVELACE_AMOUNT lovelace to ${#addresses[@]} addresses"

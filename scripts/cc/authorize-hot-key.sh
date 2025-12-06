@@ -12,40 +12,43 @@ tx_cert_path="$tx_path_stub.cert"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
+# Helper function to get UTXO with validation
+get_utxo() {
+  local address=$1
+  local utxo_output
+  utxo_output=$(cardano_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  local utxo
+  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+    echo "Error: No UTXO found at address: $address" >&2
+    exit 1
+  fi
+  echo "$utxo"
 }
+
 
 echo "Authorizing hot key for the constitutional committee."
 
-container_cli conway governance committee create-hot-key-authorization-certificate \
+cardano_cli conway governance committee create-hot-key-authorization-certificate \
   --cold-verification-key-file "$keys_dir/cc-cold.vkey" \
   --hot-key-file "$keys_dir/cc-hot.vkey" \
   --out-file "$tx_cert_path"
 
 echo "Building transaction"
 
-container_cli conway transaction build \
+cardano_cli conway transaction build \
   --witness-override 2 \
-  --tx-in $(container_cli conway query utxo --address $(cat "$keys_dir/payment.addr") --out-file /dev/stdout | jq -r 'keys[0]') \
+  --tx-in $(cardano_cli conway query utxo --address $(cat "$keys_dir/payment.addr") --out-file /dev/stdout | jq -r 'keys[0]') \
   --change-address $(cat "$keys_dir/payment.addr") \
   --certificate-file "$tx_cert_path" \
   --out-file "$tx_unsigned_path"
 
 echo "Signing transaction"
 
-container_cli conway transaction sign \
+cardano_cli conway transaction sign \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/payment.skey" \
   --signing-key-file "$keys_dir/cc-cold.skey" \
@@ -54,4 +57,4 @@ container_cli conway transaction sign \
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file $tx_signed_path
+cardano_cli conway transaction submit --tx-file $tx_signed_path

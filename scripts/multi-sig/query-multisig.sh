@@ -15,25 +15,15 @@ if [ ! -f "$keys_dir/multi-sig/script.addr" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 script_addr=$(cat "$keys_dir/multi-sig/script.addr")
 echo "Querying UTXOs for your multisig script address: $script_addr"
 
 # Query the UTxOs controlled by multisig script address
-container_cli conway query utxo \
-  --address "$script_addr" \
-  --out-file /dev/stdout
+
+cardano_cli conway query utxo \
+  --address "$(cat $keys_dir/multi-sig/script.addr)" \
+  --out-file  /dev/stdout
