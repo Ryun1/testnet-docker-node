@@ -162,10 +162,10 @@ cardano_cli() {
   fi
   
   # Block mainnet connections for external nodes
-  if [ "$NODE_MODE" = "external" ] && [ "$is_mainnet" = true ]; then
-    echo "Error: Mainnet connections are not allowed. Please use testnet networks (preprod, preview, sanchonet) only." >&2
-    exit 1
-  fi
+  # if [ "$NODE_MODE" = "external" ] && [ "$is_mainnet" = true ]; then
+  #   echo "Error: Mainnet connections are not allowed. Please use testnet networks (preprod, preview, sanchonet) only." >&2
+  #   exit 1
+  # fi
   
   if [ "$NODE_MODE" = "external" ]; then
     # External node mode: use local cardano-cli with socket

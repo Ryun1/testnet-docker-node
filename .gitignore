@@ -4,6 +4,7 @@ txs/
 dumps/
 node/
 secrets/
+utilities/
 node-*/
 /scripts/poison
 /scripts/poison/

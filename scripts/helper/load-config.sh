@@ -172,11 +172,11 @@ if [ -n "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
   export CARDANO_NODE_NETWORK_ID
   
   # Block mainnet for external nodes
-  if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ]; then
-    echo "Error: Mainnet connections via external sockets are not allowed for security reasons." >&2
-    echo "Please use Docker mode for mainnet, or set CARDANO_NODE_NETWORK_ID to a testnet value (1, 2, or 4)." >&2
-    exit 1
-  fi
+  # if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ]; then
+  #   echo "Error: Mainnet connections via external sockets are not allowed for security reasons." >&2
+  #   echo "Please use Docker mode for mainnet, or set CARDANO_NODE_NETWORK_ID to a testnet value (1, 2, or 4)." >&2
+  #   exit 1
+  # fi
   
   # Derive CARDANO_NETWORK from network ID if not set
   if [ -z "${CARDANO_NETWORK:-}" ]; then
