@@ -1,5 +1,11 @@
 #!/bin/bash
-set -euo pipefail
+
+# errors are handled gracefully to tell the user
+# set -euo pipefail
+
+# ----------------------------------------
+ALLOW_MAINNET_EXTERNAL="false"
+# ----------------------------------------
 
 # Define colors
 RED='\033[0;31m'
@@ -20,11 +26,12 @@ echo " /_/  \___/____/\__/_/ /_/\___/\__/     /_____/\____/\___/_/|_|\___/_/    
 echo "                                                                                                        "                                                                                                 
 echo
 
-# Check and display running nodes
+# Function to show currently running nodes
 show_running_nodes() {
   local running_nodes
+
   running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
-  
+
   if [ -n "$running_nodes" ]; then
     echo -e "${CYAN}Currently running Cardano node(s):${NC}"
     echo "$running_nodes" | while read -r container; do
@@ -39,14 +46,124 @@ show_running_nodes() {
   fi
 }
 
-# Display running nodes
+# Show running nodes at startup
 show_running_nodes
+
+# Prompt the user to select connection type first
+echo -e "${CYAN}How would you like to connect to a Cardano node?${NC}"
+connection_options=("Start a new Docker node" "Configure connection to an external node via socket file")
+select connection_type in "${connection_options[@]}"; do
+  if [ -n "$connection_type" ]; then
+    echo -e "${GREEN}You have selected: $connection_type${NC}"
+    break
+  else
+    echo -e "${RED}Invalid selection. Please try again.${NC}"
+  fi
+done
 
 # Define the list of available networks
 available_networks=("mainnet" "preprod" "preview" "sanchonet")
 
+
+# If user selected external node configuration
+if [ "$connection_type" = "Configure connection to an external node via socket file" ]; then
+  echo
+  echo -e "${CYAN}Checking external node configuration...${NC}"
+  
+  # Check if environment variables are set (use parameter expansion to handle unbound variables)
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
+    echo -e "${RED}Error: CARDANO_NODE_SOCKET_PATH environment variable is not set.${NC}"
+    echo -e "${YELLOW}Please set it before running this script:${NC}"
+    echo -e "${BLUE}  export CARDANO_NODE_SOCKET_PATH=\"/path/to/node.socket\"${NC}"
+    exit 1
+  fi
+  
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
+    echo -e "${RED}Error: CARDANO_NODE_NETWORK_ID environment variable is not set.${NC}"
+    echo -e "${YELLOW}Please set it before running this script:${NC}"
+    echo -e "${BLUE}  export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet${NC}"
+    exit 1
+  fi
+  
+  # Expand ~ in socket path
+  socket_path="${CARDANO_NODE_SOCKET_PATH/#\~/$HOME}"
+  
+  # Validate socket file exists
+  if [ ! -S "$socket_path" ] && [ ! -f "$socket_path" ]; then
+    echo -e "${RED}Error: Socket file '$socket_path' does not exist or is not accessible.${NC}"
+    echo -e "${YELLOW}Please check that CARDANO_NODE_SOCKET_PATH points to a valid socket file.${NC}"
+    exit 1
+  fi
+  
+  # Validate socket file extension
+  if [[ "$socket_path" != *.socket ]]; then
+    echo -e "${YELLOW}Warning: Socket file should have .socket extension.${NC}"
+  fi
+  
+  # Validate socket file is actually a socket file type
+  if [ ! -S "$socket_path" ]; then
+    echo -e "${YELLOW}Warning: '$socket_path' exists but is not a socket file type.${NC}"
+    echo -e "${CYAN}Do you want to continue anyway? (y/n):${NC}"
+    read -r continue_choice < /dev/tty
+    if [ "$continue_choice" != "y" ] && [ "$continue_choice" != "Y" ]; then
+      echo -e "${YELLOW}Cancelled.${NC}"
+      exit 0
+    fi
+  fi
+  
+  # Validate network ID is numeric
+  if ! [[ "${CARDANO_NODE_NETWORK_ID:-}" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}Error: CARDANO_NODE_NETWORK_ID must be a number.${NC}"
+    exit 1
+  fi
+  
+  # Block mainnet for external nodes
+  if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ] && [ "${ALLOW_MAINNET_EXTERNAL:-}" != "true" ]; then
+    echo -e "${RED}Error: Mainnet connections via external sockets are not allowed for security reasons.${NC}"
+    echo -e "${YELLOW}Please use Docker mode for mainnet, or set CARDANO_NODE_NETWORK_ID to a testnet value (1, 2, or 4).${NC}"
+    exit 1
+  fi
+  
+  # Determine network name from ID
+  case "${CARDANO_NODE_NETWORK_ID:-}" in
+    1) network_name="preprod" ;;
+    2) network_name="preview" ;;
+    4) network_name="sanchonet" ;;
+    *) network_name="unknown" ;;
+  esac
+  
+  # Confirm with user
+  echo
+  echo -e "${GREEN}External node configuration detected:${NC}"
+  echo -e "${BLUE}  Socket path: $socket_path${NC}"
+  echo -e "${BLUE}  Network ID: ${CARDANO_NODE_NETWORK_ID:-}${NC}"
+  if [ "$network_name" != "unknown" ]; then
+    echo -e "${BLUE}  Network: $network_name${NC}"
+  fi
+  echo
+  echo -e "${CYAN}Is this correct? (y/n):${NC}"
+  read -r confirm < /dev/tty
+  
+  if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+    echo -e "${YELLOW}Cancelled. Please set the correct environment variables and try again.${NC}"
+    exit 0
+  fi
+  
+  echo
+  echo -e "${GREEN}Configuration confirmed!${NC}"
+  echo -e "${BLUE}You can now run scripts with these environment variables set.${NC}"
+  echo
+  echo -e "${BLUE}Example:${NC}"
+  echo -e "${YELLOW}  ./scripts/query/tip.sh${NC}"
+  exit 0
+fi
+
+# Continue with Docker node setup
+echo
+echo -e "${CYAN}Setting up Docker node...${NC}"
+
 # Define the list of available node versions
-available_versions=("10.5.1" "10.5.3" "10.6.1")
+available_versions=( "10.5.3" "10.5.1")
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -197,10 +314,7 @@ multi_sig_dir="$tx_dir/multi-sig"
 simple_dir="$tx_dir/simple"
 helper_dir="$tx_dir/helper"
 
-# Dumps dir
 dumps_dir="$base_dir/dumps/$network"
-
-# Utilities dir
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
@@ -292,4 +406,9 @@ fi
 
 # Forward the logs to the terminal
 echo -e "${GREEN}Docker container logs:${NC}"
+echo -e "${BLUE}Container name: node-$network-$node_version-container${NC}"
+echo -e "${BLUE}To use this container with scripts, you can specify:${NC}"
+echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"node-$network-$node_version-container\" ./scripts/query/tip.sh${NC}"
+echo -e "${BLUE}Or let the script auto-select if it's the only running container.${NC}"
+echo
 docker logs "node-$network-$node_version-container" --follow

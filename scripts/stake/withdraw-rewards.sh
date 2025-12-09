@@ -36,26 +36,14 @@ if [ ! -f "$keys_dir/stake.skey" ]; then
   exit 1
 fi
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
-
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
-fi
-
-echo "Using running container: $container_name"
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti "$container_name" cardano-cli "$@"
-}
+# Source the cardano-cli wrapper
+source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Helper function to get UTXO with validation
 get_utxo() {
   local address=$1
   local utxo_output
-  utxo_output=$(container_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  utxo_output=$(cardano_cli conway query utxo --address "$address" --out-file /dev/stdout)
   local utxo
   utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
   if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
@@ -65,21 +53,20 @@ get_utxo() {
   echo "$utxo"
 }
 
-stake_account_balance=$(container_cli conway query stake-address-info --address "$(cat "$keys_dir/stake.addr")" | jq -r '.[0].rewardAccountBalance') 
+
+
+stake_account_balance=$(cardano_cli conway query stake-address-info --address $(cat $keys_dir/stake.addr) | jq -r '.[0].rewardAccountBalance') 
 
 # Send ada to the multisig payment script
 echo "Withdrawing all balance of $stake_account_balance from stake account."
 
 echo "Building transaction"
 
-payment_addr=$(cat "$keys_dir/payment.addr")
-stake_addr=$(cat "$keys_dir/stake.addr")
-utxo=$(get_utxo "$payment_addr")
 
-container_cli conway transaction build \
- --tx-in "$utxo" \
- --change-address "$payment_addr" \
- --withdrawal "$stake_addr+$stake_account_balance" \
+cardano_cli conway transaction build \
+ --tx-in $(cardano_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file  /dev/stdout | jq -r 'keys[0]') \
+ --change-address $(cat $keys_dir/payment.addr) \
+ --withdrawal $(cat $keys_dir/stake.addr)+$stake_account_balance \
  --out-file "$tx_unsigned_path"
 
 # Check transaction file was created
@@ -90,7 +77,7 @@ fi
 
 echo "Signing transaction"
 
-container_cli conway transaction sign \
+cardano_cli conway transaction sign \
   --tx-body-file "$tx_unsigned_path" \
   --signing-key-file "$keys_dir/payment.skey" \
   --signing-key-file "$keys_dir/stake.skey" \
@@ -105,4 +92,5 @@ fi
 # Submit the transaction
 echo "Submitting transaction"
 
-container_cli conway transaction submit --tx-file "$tx_signed_path"
+
+cardano_cli conway transaction submit --tx-file $tx_signed_path
