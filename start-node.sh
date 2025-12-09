@@ -1,5 +1,11 @@
 #!/bin/bash
-set -euo pipefail
+
+# errors are handled gracefully to tell the user
+# set -euo pipefail
+
+# ----------------------------------------
+ALLOW_MAINNET_EXTERNAL="false"
+# ----------------------------------------
 
 # Define colors
 RED='\033[0;31m'
@@ -64,15 +70,15 @@ if [ "$connection_type" = "Configure connection to an external node via socket f
   echo
   echo -e "${CYAN}Checking external node configuration...${NC}"
   
-  # Check if environment variables are set
-  if [ -z "$CARDANO_NODE_SOCKET_PATH" ]; then
+  # Check if environment variables are set (use parameter expansion to handle unbound variables)
+  if [ -z "${CARDANO_NODE_SOCKET_PATH:-}" ]; then
     echo -e "${RED}Error: CARDANO_NODE_SOCKET_PATH environment variable is not set.${NC}"
     echo -e "${YELLOW}Please set it before running this script:${NC}"
     echo -e "${BLUE}  export CARDANO_NODE_SOCKET_PATH=\"/path/to/node.socket\"${NC}"
     exit 1
   fi
   
-  if [ -z "$CARDANO_NODE_NETWORK_ID" ]; then
+  if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
     echo -e "${RED}Error: CARDANO_NODE_NETWORK_ID environment variable is not set.${NC}"
     echo -e "${YELLOW}Please set it before running this script:${NC}"
     echo -e "${BLUE}  export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet${NC}"
@@ -106,20 +112,20 @@ if [ "$connection_type" = "Configure connection to an external node via socket f
   fi
   
   # Validate network ID is numeric
-  if ! [[ "$CARDANO_NODE_NETWORK_ID" =~ ^[0-9]+$ ]]; then
+  if ! [[ "${CARDANO_NODE_NETWORK_ID:-}" =~ ^[0-9]+$ ]]; then
     echo -e "${RED}Error: CARDANO_NODE_NETWORK_ID must be a number.${NC}"
     exit 1
   fi
   
   # Block mainnet for external nodes
-  if [ "$CARDANO_NODE_NETWORK_ID" = "764824073" ]; then
+  if [ "${CARDANO_NODE_NETWORK_ID:-}" = "764824073" ] && [ "${ALLOW_MAINNET_EXTERNAL:-}" != "true" ]; then
     echo -e "${RED}Error: Mainnet connections via external sockets are not allowed for security reasons.${NC}"
     echo -e "${YELLOW}Please use Docker mode for mainnet, or set CARDANO_NODE_NETWORK_ID to a testnet value (1, 2, or 4).${NC}"
     exit 1
   fi
   
   # Determine network name from ID
-  case "$CARDANO_NODE_NETWORK_ID" in
+  case "${CARDANO_NODE_NETWORK_ID:-}" in
     1) network_name="preprod" ;;
     2) network_name="preview" ;;
     4) network_name="sanchonet" ;;
@@ -130,7 +136,7 @@ if [ "$connection_type" = "Configure connection to an external node via socket f
   echo
   echo -e "${GREEN}External node configuration detected:${NC}"
   echo -e "${BLUE}  Socket path: $socket_path${NC}"
-  echo -e "${BLUE}  Network ID: $CARDANO_NODE_NETWORK_ID${NC}"
+  echo -e "${BLUE}  Network ID: ${CARDANO_NODE_NETWORK_ID:-}${NC}"
   if [ "$network_name" != "unknown" ]; then
     echo -e "${BLUE}  Network: $network_name${NC}"
   fi
@@ -157,7 +163,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=("10.5.1" "10.5.3" "10.6.1")
+available_versions=( "10.5.3" "10.5.1")
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -308,10 +314,7 @@ multi_sig_dir="$tx_dir/multi-sig"
 simple_dir="$tx_dir/simple"
 helper_dir="$tx_dir/helper"
 
-# Dumps dir
 dumps_dir="$base_dir/dumps/$network"
-
-# Utilities dir
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files

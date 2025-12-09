@@ -38,7 +38,7 @@ jobs:
       timeout-minutes: 10
       run: |
         set -euo pipefail
-        printf "2\n1\n" | ./start-node.sh 2>&1 | tee preprod_output.txt &
+        printf "1\n2\n1\n" | ./start-node.sh 2>&1 | tee preprod_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
@@ -65,7 +65,7 @@ jobs:
       timeout-minutes: 3
       run: |
         set -euo pipefail
-        printf "3\n1\n" | ./start-node.sh 2>&1 | tee preview_output.txt &
+        printf "1\n3\n1\n" | ./start-node.sh 2>&1 | tee preview_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
@@ -92,7 +92,7 @@ jobs:
       timeout-minutes: 3
       run: |
         set -euo pipefail
-        printf "4\n1\n" | ./start-node.sh 2>&1 | tee sancho_output.txt &
+        printf "1\n4\n1\n" | ./start-node.sh 2>&1 | tee sancho_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
