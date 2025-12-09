@@ -94,6 +94,9 @@ echo "Building unsigned transaction..."
 # Get UTxO
 utxo=$(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file /dev/stdout | jq -r 'keys[0]')
 
+utxo_value=$(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file /dev/stdout | jq -r ".[\"$utxo\"].value.lovelace")
+output_value=$((utxo_value - 1000000)) # Leave 2 ADA for fees and change
+
 if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
   echo "Error: No UTxO found at payment address: $(cat $keys_dir/payment.addr)"
   exit 1
@@ -101,10 +104,10 @@ fi
 
 echo "Using UTxO: $utxo"
 
-container_cli conway transaction build \
-  --witness-override 2 \
+container_cli conway transaction build-raw \
+  --fee 1000000 \
   --tx-in "$utxo" \
-  --change-address $(cat $keys_dir/payment.addr) \
+  --tx-out "$(cat $keys_dir/payment.addr)+$output_value" \
   --certificate-file "$tx_cert_path" \
   --out-file "$tx_unsigned_path"
 
