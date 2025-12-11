@@ -1,16 +1,20 @@
 
-# Cardano Testnet (docker) Node Toolkit 🤠
+# Cardano Testnet Node Toolkit 🤠
 
-A simple dockerized Cardano node toolkit,
-for running a Cardano testnet nodes and interacting with Cardano networks.
+A simple Cardano node toolkit,
+interact with Cardano nodes running in docker or connect via socket file.
 
-**Current node version:** `10.5.3`
+Allowing the user to run multiple dockerised nodes,
+with different versions and across networks.
+
+**Docker node version choices:** `10.5.3`, `10.5.1`
 
 ## Prerequisites
 
 ### `Docker`
 
 Install docker desktop for your operating system.
+
 - <https://docs.docker.com/engine/install>
 
 If you are using Apple silicon (M1, M2, M3 processor) make sure you have Rosetta enabled via Docker desktop settings.
@@ -18,6 +22,7 @@ If you are using Apple silicon (M1, M2, M3 processor) make sure you have Rosetta
 ### Visual Studio Code
 
 Install VSCode so we can more easily navigate directories, and inspect files.
+
 - <https://code.visualstudio.com/>
 
 ### Mac Specific Prerequisites
@@ -29,6 +34,7 @@ xcode-select --install
 ```
 
 2. Rosetta.
+
 ```zsh
 softwareupdate --install-rosetta
 ```
@@ -41,7 +47,7 @@ Windows Subsystem for Linux.
 
 ## Setup Guide
 
-### 1. Clone this repository.
+### 1. Clone this repository
 
 You may want to make a nice folder/directory for this first.
 
@@ -51,19 +57,19 @@ Clone into current directory.
 git clone https://github.com/Ryun1/testnet-docker-node.git
 ```
 
-### 2. Open `testnet-docker-node` from within Visual Studio Code.
+### 2. Open `testnet-docker-node` from within Visual Studio Code
 
 Open Visual Studio Code and then go `File > Open Folder` selecting `testnet-docker-node` folder.
 
 ![Open Folder VS Code](./docs/images/setup-2.png)
 
-### 3. Open a terminal in Visual Studio Code.
+### 3. Open a terminal in Visual Studio Code
 
 Open a terminal inside of VSCode.
 
 ![Open Terminal Console](./docs/images/setup-3.png)
 
-### 4. Update script permissions.
+### 4. Update script permissions
 
 Inside the terminal console, give scripts execute file permissions.
 
@@ -74,6 +80,7 @@ wsl
 ```
 
 Run the following command.
+
 ```zsh
 chmod +x ./start-node.sh ./stop-nodes.sh ./scripts/*
 ```
@@ -123,7 +130,7 @@ And then click on the new terminal.
 
 ![Navigate to new terminal](./docs/images/usage-check-1-b.png)
 
-#### 2. Query tip of node.
+#### 2. Query tip of node
 
 Run the node query tip script.
 
@@ -186,11 +193,12 @@ Now you have a node you can actually ✨*do fun stuff*✨
 
 ### Setup keys and get tAda
 
-#### 1. Generate keys, addresses and a DRep ID.
+#### 1. Generate keys, addresses and a DRep ID
 
 We have a script that:
+
 - randomly generates a set of payment, stake and DRep keys
-- from keys, creates addresses and a DRep ID 
+- from keys, creates addresses and a DRep ID
 
 In a terminal execute:
 
@@ -202,7 +210,7 @@ This will create you a keys directory with some fun things inside, looks like th
 
 ![New keys and addresses](./docs/images/doing-1.png)
 
-#### 2. Get some tAda.
+#### 2. Get some tAda
 
 Get yourself some test ada, so you can pay for transaction fees.
 
@@ -218,21 +226,21 @@ I will give an example of what you could do.
 
 Make sure you have a node running for these.
 
-#### Become a DRep, delegate to self and vote.
+#### Become a DRep, delegate to self and vote
 
-##### 1. Register as a DRep.
+##### 1. Register as a DRep
 
 ```bash
 ./scripts/drep/register.sh
 ```
 
-##### 2. Register your stake key (needed before delegating).
+##### 2. Register your stake key (needed before delegating)
 
 ```bash
 ./scripts/stake/key-register.sh
 ```
 
-##### 3. Delegate your tAda's voting rights to yourself.
+##### 3. Delegate your tAda's voting rights to yourself
 
 ```bash
 ./scripts/drep/delegate-to-self.sh
@@ -274,19 +282,6 @@ export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet
 - **preprod**: Network ID `1`
 - **preview**: Network ID `2`
 - **sanchonet**: Network ID `4`
-- **mainnet**: Network ID `764824073` (blocked for external nodes)
-
-### Docker Container Selection
-
-Specify which Docker container to use:
-
-```bash
-# Use specific container
-CARDANO_CONTAINER_NAME="node-preprod-10.5.3-container" ./scripts/query/tip.sh
-
-# Use different container
-CARDANO_CONTAINER_NAME="node-preview-10.5.3-container" ./scripts/query/tip.sh
-```
 
 ### Multiple Docker Containers
 
