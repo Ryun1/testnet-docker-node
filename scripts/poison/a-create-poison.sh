@@ -1,24 +1,30 @@
 #!/bin/bash
+set -euo pipefail
 
 # Script to test Hypothesis A: PoolHash bug allows arbitrary lengths of bytes after a valid Poolhash
 # This script builds a stake delegation transaction, then allows user to input a poisoned PoolID
 # which replaces the original PoolID in the transaction CBOR before signing.
+
+# Get the script's directory and project root
+poison_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_root="$(cd "$poison_script_dir/../.." && pwd)"
+
+# Define directory paths relative to project root
+keys_dir="$project_root/keys"
+txs_dir="$project_root/txs/poison"
 
 # Get test case number from user
 echo "=========================================="
 echo "Hypothesis A - PoolHash Poison Test"
 echo "=========================================="
 echo ""
-read -p "Enter test case number: " test_case_number
+read -p "Enter test case number: " test_case_number < /dev/tty
 
 if [ -z "$test_case_number" ]; then
   echo "Error: Test case number is required."
   exit 1
 fi
 
-# Define directory paths
-keys_dir="./keys"
-txs_dir="./txs/poison"
 test_case_dir="$txs_dir/hypothesis-a-poison/$test_case_number"
 tx_path_stub="$test_case_dir/poison-tx"
 tx_cert_path="$tx_path_stub.cert"
@@ -28,32 +34,46 @@ tx_signed_path="$tx_path_stub.signed"
 # Create test case directory if it doesn't exist
 mkdir -p "$test_case_dir"
 
-# Get the script's directory
-script_dir=$(dirname "$0")
+# Source the cardano-cli wrapper
+source "$poison_script_dir/../helper/cardano-cli-wrapper.sh"
 
-# Get the container name from the get-container script
-container_name="$("$script_dir/../helper/get-container.sh")"
+# Helper function to get UTXO with validation
+get_utxo() {
+  local address=$1
+  local utxo_output
+  utxo_output=$(cardano_cli conway query utxo --address "$address" --out-file /dev/stdout)
+  local utxo
+  utxo=$(echo "$utxo_output" | jq -r 'keys[0]')
+  if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
+    echo "Error: No UTXO found at address: $address" >&2
+    exit 1
+  fi
+  echo "$utxo"
+}
 
-if [ -z "$container_name" ]; then
-  echo "Failed to determine a running container."
-  exit 1
+# Get container name for Python script (if in Docker mode)
+container_name=""
+if [ "$NODE_MODE" = "docker" ]; then
+  if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
+    container_name="$CARDANO_CONTAINER_NAME"
+  else
+    # Try to get container name from running containers
+    container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | head -n 1 || true)
+  fi
 fi
 
-echo "Using running container: $container_name"
 echo "Test case number: $test_case_number"
 echo "Files will be saved to: $test_case_dir"
+if [ -n "$container_name" ]; then
+  echo "Using container: $container_name"
+fi
 echo ""
-
-# Function to execute cardano-cli commands inside the container
-container_cli() {
-  docker exec -ti $container_name cardano-cli "$@"
-}
 
 # Test case directory already created above
 
 # Step 1: Query stake pools and get the first PoolID
 echo "Querying stake pools..."
-pools_output=$(container_cli conway query stake-pools --out-file /dev/stdout)
+pools_output=$(cardano_cli conway query stake-pools --out-file /dev/stdout)
 
 if [ -z "$pools_output" ]; then
   echo "Error: No stake pools found. Cannot proceed."
@@ -76,8 +96,8 @@ echo "Using PoolID: $pool_id"
 
 # Step 2: Build stake delegation certificate with valid PoolID
 echo "Creating stake delegation certificate..."
-container_cli conway stake-address stake-delegation-certificate \
-  --stake-verification-key-file $keys_dir/stake.vkey \
+cardano_cli conway stake-address stake-delegation-certificate \
+  --stake-verification-key-file "$keys_dir/stake.vkey" \
   --stake-pool-id "$pool_id" \
   --out-file "$tx_cert_path"
 
@@ -92,22 +112,19 @@ echo "Certificate created: $tx_cert_path"
 echo "Building unsigned transaction..."
 
 # Get UTxO
-utxo=$(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file /dev/stdout | jq -r 'keys[0]')
+payment_addr=$(cat "$keys_dir/payment.addr")
+utxo=$(get_utxo "$payment_addr")
 
-utxo_value=$(container_cli conway query utxo --address $(cat $keys_dir/payment.addr) --out-file /dev/stdout | jq -r ".[\"$utxo\"].value.lovelace")
-output_value=$((utxo_value - 1000000)) # Leave 2 ADA for fees and change
-
-if [ -z "$utxo" ] || [ "$utxo" = "null" ]; then
-  echo "Error: No UTxO found at payment address: $(cat $keys_dir/payment.addr)"
-  exit 1
-fi
+utxo_output=$(cardano_cli conway query utxo --address "$payment_addr" --out-file /dev/stdout)
+utxo_value=$(echo "$utxo_output" | jq -r ".[\"$utxo\"].value.lovelace")
+output_value=$((utxo_value - 1000000)) # Leave 1 ADA for fees and change
 
 echo "Using UTxO: $utxo"
 
-container_cli conway transaction build-raw \
+cardano_cli conway transaction build-raw \
   --fee 1000000 \
   --tx-in "$utxo" \
-  --tx-out "$(cat $keys_dir/payment.addr)+$output_value" \
+  --tx-out "$payment_addr+$output_value" \
   --certificate-file "$tx_cert_path" \
   --out-file "$tx_unsigned_path"
 
@@ -130,7 +147,7 @@ echo "  - A hex string (e.g., abc123...)"
 echo "  - A valid PoolID hex followed by arbitrary hex bytes"
 echo "  - Any hex bytes (will be used as-is)"
 echo ""
-read -p "Enter poisoned PoolID (hex): " poisoned_poolid
+read -p "Enter poisoned PoolID (hex): " poisoned_poolid < /dev/tty
 
 if [ -z "$poisoned_poolid" ]; then
   echo "Error: No poisoned PoolID provided."
@@ -148,7 +165,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Check for virtual environment and activate if it exists
-venv_dir="./venv"
+venv_dir="$project_root/venv"
 if [ -d "$venv_dir" ] && [ -f "$venv_dir/bin/activate" ]; then
   echo "Activating virtual environment..."
   source "$venv_dir/bin/activate"
@@ -180,12 +197,19 @@ cp "$tx_unsigned_path" "$tx_unsigned_path.backup"
 # Run Python script to poison the transaction
 # Original PoolID is bech32 (from query), poisoned PoolID is hex (from user)
 # Always pass cardano-cli command as fallback for bech32 decoding
-python3 "$script_dir/cbor_poison.py" \
+if [ -n "$container_name" ]; then
+  cardano_cli_cmd="docker exec -i $container_name cardano-cli"
+else
+  # External node mode - use local cardano-cli
+  cardano_cli_cmd="cardano-cli"
+fi
+
+python3 "$poison_script_dir/cbor_poison.py" \
   --tx-file "$tx_unsigned_path" \
   --original-poolid "$pool_id" \
   --poisoned-poolid "$poisoned_poolid" \
   --output "$tx_unsigned_path" \
-  --cardano-cli "docker exec -i $container_name cardano-cli"
+  --cardano-cli "$cardano_cli_cmd"
 
 if [ $? -ne 0 ]; then
   echo "Error: Failed to poison transaction CBOR."
@@ -200,10 +224,10 @@ echo "Transaction CBOR successfully modified."
 echo ""
 echo "Signing the modified transaction..."
 
-container_cli conway transaction sign \
+cardano_cli conway transaction sign \
   --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file $keys_dir/payment.skey \
-  --signing-key-file $keys_dir/stake.skey \
+  --signing-key-file "$keys_dir/payment.skey" \
+  --signing-key-file "$keys_dir/stake.skey" \
   --out-file "$tx_signed_path"
 
 if [ ! -f "$tx_signed_path" ]; then
@@ -222,12 +246,12 @@ echo ""
 echo "Original PoolID: $pool_id"
 echo "Poisoned PoolID: $poisoned_poolid"
 echo ""
-read -p "Do you want to submit this transaction? (y/n): " submit_choice
+read -p "Do you want to submit this transaction? (y/n): " submit_choice < /dev/tty
 
 if [ "$submit_choice" = "y" ] || [ "$submit_choice" = "Y" ]; then
   echo ""
   echo "Submitting transaction..."
-  container_cli conway transaction submit --tx-file "$tx_signed_path"
+  cardano_cli conway transaction submit --tx-file "$tx_signed_path"
   
   if [ $? -eq 0 ]; then
     echo "Transaction submitted successfully!"
