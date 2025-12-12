@@ -17,7 +17,8 @@ Install docker desktop for your operating system.
 
 - <https://docs.docker.com/engine/install>
 
-If you are using Apple silicon (M1, M2, M3 processor) make sure you have Rosetta enabled via Docker desktop settings.
+If you are using Apple silicon (M1, M2, M3 processor) make sure you have Rosetta
+enabled via Docker desktop settings.
 
 ### Visual Studio Code
 
