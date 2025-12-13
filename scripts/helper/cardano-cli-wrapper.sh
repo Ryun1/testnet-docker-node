@@ -32,6 +32,33 @@ convert_to_container_path() {
   echo "$path"
 }
 
+# Display version info for a given container name
+display_version_info() {
+  local container_name="$1"
+  if [ -z "$container_name" ]; then
+    return
+  fi
+  
+  # Extract network and version from container name (pattern: node-{network}-{version}-container)
+  local network=""
+  local node_version=""
+  if [[ "$container_name" =~ ^node-([^-]+)-([^-]+)-container$ ]]; then
+    network="${BASH_REMATCH[1]}"
+    node_version="${BASH_REMATCH[2]}"
+  fi
+  
+  # Get cardano-cli version from container
+  local cli_version=$(docker exec "$container_name" cardano-cli version 2>/dev/null | head -n 1 || echo "unknown")
+  # Clean up version string (remove "cardano-cli" prefix if present)
+  cli_version=$(echo "$cli_version" | sed 's/^cardano-cli //')
+  
+  if [ -n "$network" ] && [ -n "$node_version" ]; then
+    echo -e "${CYAN}Info:${NC} ${YELLOW}node v$node_version${NC} | ${GREEN}$network${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
+  else
+    echo -e "${CYAN}Info:${NC} ${YELLOW}Docker container: $container_name${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
+  fi
+}
+
 # Check cardano-cli version and display node info (only once, when wrapper is sourced)
 check_cardano_cli_version() {
   if [ "$NODE_MODE" = "external" ]; then
@@ -65,24 +92,7 @@ check_cardano_cli_version() {
     fi
     
     if [ -n "$container_name" ]; then
-      # Extract network and version from container name (pattern: node-{network}-{version}-container)
-      local network=""
-      local node_version=""
-      if [[ "$container_name" =~ ^node-([^-]+)-([^-]+)-container$ ]]; then
-        network="${BASH_REMATCH[1]}"
-        node_version="${BASH_REMATCH[2]}"
-      fi
-      
-      # Get cardano-cli version from container
-      local cli_version=$(docker exec "$container_name" cardano-cli version 2>/dev/null | head -n 1 || echo "unknown")
-      # Clean up version string (remove "cardano-cli" prefix if present)
-      cli_version=$(echo "$cli_version" | sed 's/^cardano-cli //')
-      
-      if [ -n "$network" ] && [ -n "$node_version" ]; then
-        echo -e "${CYAN}Info:${NC} ${YELLOW}node v$node_version${NC} | ${GREEN}$network${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
-      else
-        echo -e "${CYAN}Info:${NC} ${YELLOW}Docker container: $container_name${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
-      fi
+      display_version_info "$container_name"
     fi
   fi
 }
@@ -181,6 +191,13 @@ cardano_cli() {
     if [ -z "$container_name" ]; then
       echo "Error: Failed to determine a running container." >&2
       exit 1
+    fi
+    
+    # Display version info for the selected container
+    # Only show if multiple containers are running (selection happened) to avoid duplicate when single container
+    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+    if [ "$running_count" -gt 1 ]; then
+      display_version_info "$container_name"
     fi
     
     # Convert file paths in arguments to container paths
