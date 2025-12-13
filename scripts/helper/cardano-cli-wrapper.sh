@@ -4,6 +4,7 @@
 # This script should be sourced by other scripts
 
 # Define colors
+RED='\033[0;31m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -13,6 +14,9 @@ NC='\033[0m' # No color
 # Get the script's directory (works when sourced)
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 base_dir="$(cd "$script_dir/../.." && pwd)"
+
+# Flag to track if version info has been displayed (once per script execution)
+_CARDANO_VERSION_INFO_DISPLAYED=false
 
 # Load configuration
 source "$script_dir/load-config.sh"
@@ -112,7 +116,13 @@ get_container_name() {
       fi
     fi
     # Use get-container.sh (which handles CARDANO_CONTAINER_NAME_OVERRIDE)
-    "$script_dir/get-container.sh"
+    # Capture the output and export it in the parent shell so subsequent calls use it
+    local container_name
+    container_name=$("$script_dir/get-container.sh")
+    if [ -n "$container_name" ]; then
+      export CARDANO_CONTAINER_NAME="$container_name"
+    fi
+    echo "$container_name"
   fi
 }
 
@@ -193,11 +203,14 @@ cardano_cli() {
       exit 1
     fi
     
-    # Display version info for the selected container
+    # Display version info for the selected container (only once per script execution)
     # Only show if multiple containers are running (selection happened) to avoid duplicate when single container
-    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
-    if [ "$running_count" -gt 1 ]; then
-      display_version_info "$container_name"
+    if [ "$_CARDANO_VERSION_INFO_DISPLAYED" != "true" ]; then
+      local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+      if [ "$running_count" -gt 1 ]; then
+        display_version_info "$container_name"
+        _CARDANO_VERSION_INFO_DISPLAYED=true
+      fi
     fi
     
     # Convert file paths in arguments to container paths
@@ -226,4 +239,50 @@ cardano_cli() {
 
 # Call version check when wrapper is sourced
 check_cardano_cli_version
+
+# Initialize container selection when wrapper is sourced (runs once per script)
+# This ensures CARDANO_CONTAINER_NAME is set before any cardano_cli calls,
+# including nested ones in command substitution that create subshells
+if [ "$NODE_MODE" = "docker" ] && [ -z "${CARDANO_CONTAINER_NAME:-}" ] && [ -z "${CARDANO_CONTAINER_NAME_OVERRIDE:-}" ]; then
+  running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' || true)
+  
+  if [ -n "$running_containers" ]; then
+    # Convert to array - build array by reading line by line
+    container_array=()
+    while IFS= read -r line; do
+      [ -n "$line" ] && container_array+=("$line")
+    done <<< "$running_containers"
+    
+    if [ ${#container_array[@]} -eq 1 ]; then
+      # Single container: auto-select
+      export CARDANO_CONTAINER_NAME="${container_array[0]}"
+    elif [ ${#container_array[@]} -gt 1 ]; then
+      # Multiple containers: prompt once
+      if [ -t 0 ] && [ -t 1 ]; then
+        # Interactive mode: prompt user
+        echo -e "${CYAN}Multiple Cardano node containers are running. Please select one:${NC}" >&2
+        select container_name in "${container_array[@]}"; do
+          if [ -n "$container_name" ]; then
+            export CARDANO_CONTAINER_NAME="$container_name"
+            echo -e "${GREEN}Selected: $container_name${NC}" >&2
+            # Display version info right after selection
+            display_version_info "$container_name"
+            _CARDANO_VERSION_INFO_DISPLAYED=true
+            break
+          else
+            echo -e "${RED}Invalid selection.${NC}" >&2
+            exit 1
+          fi
+        done
+      else
+        # Non-interactive: use first container
+        export CARDANO_CONTAINER_NAME="${container_array[0]}"
+        echo "Warning: Multiple containers running but no TTY available. Using first container: ${container_array[0]}" >&2
+        # Display version info for non-interactive mode too
+        display_version_info "${container_array[0]}"
+        _CARDANO_VERSION_INFO_DISPLAYED=true
+      fi
+    fi
+  fi
+fi
 
