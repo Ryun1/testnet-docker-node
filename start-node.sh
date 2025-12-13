@@ -15,6 +15,29 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No color
 
+# Function to check if Docker is running
+check_docker_running() {
+  echo -e "${CYAN}Checking if Docker is running...${NC}"
+  
+  if ! command -v docker >/dev/null 2>&1; then
+    echo -e "${RED}Error: Docker is not installed.${NC}"
+    echo -e "${YELLOW}Please install Docker Desktop from: https://www.docker.com/products/docker-desktop${NC}"
+    exit 1
+  fi
+  
+  if ! docker info >/dev/null 2>&1; then
+    echo -e "${RED}Error: Docker is installed but not running.${NC}"
+    echo -e "${YELLOW}Please start Docker Desktop and try again.${NC}"
+    exit 1
+  fi
+  
+  echo -e "${GREEN}Docker is running.${NC}"
+  echo
+}
+
+# Check Docker before proceeding
+check_docker_running
+
 # ASCII Art Welcome Message
 echo -e "${CYAN}"
 echo "                                                                                                        "
