@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("mainnet" "preprod" "preview" "sanchonet")
+available_networks=("mainnet" "preprod" "preview" "sanchonet-pig" "sanchonet-chicken")
 
 
 # If user selected external node configuration
@@ -282,6 +282,13 @@ else
   done
 fi
 
+# Normalize network name for directory/container naming
+# sanchonet-pig and sanchonet-chicken both normalize to sanchonet
+network_normalized="$network"
+if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+  network_normalized="sanchonet"
+fi
+
 # Function to assign a unique port based on version
 # This ensures different versions on the same network use different ports
 assign_port_for_version() {
@@ -331,7 +338,7 @@ check_running_nodes() {
 
 # Check if the specific node is already running or exists
 check_duplicate_node() {
-  local target_container="node-$network-$node_version-container"
+  local target_container="node-$network_normalized-$node_version-container"
   local is_running
   local exists
   
@@ -369,7 +376,7 @@ project_root=$(cd "$script_dir" && pwd)
 
 # Set directory locations
 base_dir="$project_root"
-node_dir="$base_dir/node-$network-$node_version"
+node_dir="$base_dir/node-$network_normalized-$node_version"
 config_dir="$node_dir/config"
 db_dir="$node_dir/db"
 ipc_dir="$node_dir/ipc"
@@ -384,11 +391,11 @@ multi_sig_dir="$tx_dir/multi-sig"
 simple_dir="$tx_dir/simple"
 helper_dir="$tx_dir/helper"
 
-dumps_dir="$base_dir/dumps/$network"
+dumps_dir="$base_dir/dumps/$network_normalized"
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
-if [ "$network" = "sanchonet" ]; then
+if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
 else
   config_base_url="https://book.play.dev.cardano.org/environments/$network/"
@@ -447,15 +454,67 @@ config_files=(
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
 for file in "${config_files[@]}"; do
+  # Skip topology.json for sanchonet-chicken (we'll create a custom one)
+  if [ "$network" = "sanchonet-chicken" ] && [ "$file" = "topology.json" ]; then
+    echo -e "${YELLOW}Skipping topology.json for sanchonet-chicken (will use custom topology)${NC}"
+    continue
+  fi
   echo -e "${BLUE}Downloading: $file${NC}"
   curl --silent -O -J -L "${config_base_url}${file}"
 done
+
+# Create custom topology.json for sanchonet-chicken
+if [ "$network" = "sanchonet-chicken" ]; then
+  echo -e "${BLUE}Creating custom topology.json for sanchonet-chicken${NC}"
+  cat > topology.json << 'EOF'
+{
+  "bootstrapPeers": [
+    {
+      "address": "sanchorelay1.intertreecryptoconsultants.com",
+      "port": 6002
+    }
+   ],
+  "localRoots": [
+    {
+      "accessPoints": [
+     {
+      "address": "sanchorelay1.intertreecryptoconsultants.com",
+      "port": 6002
+     },
+     {
+      "address": "9.tcp.eu.ngrok.io",
+      "port": 20802
+     },
+     {
+      "address": "34.19.153.32",
+      "port": 6002
+     },
+     {
+      "address": "relay.hephy.io",
+      "port": 9000
+     }
+       ],
+      "advertise": false,
+      "trustable": true,
+      "valency": 4
+    }
+  ],
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ],
+  "useLedgerAfterSlot": -1
+}
+EOF
+fi
 
 # Return to the base directory
 cd "$base_dir" || exit
 
 # Export environment variables for use in docker-compose.yml
-export NETWORK=$network
+export NETWORK=$network_normalized
 export NODE_VERSION=$node_version
 export NODE_PORT=$NODE_PORT
 
@@ -476,9 +535,9 @@ fi
 
 # Forward the logs to the terminal
 echo -e "${GREEN}Docker container logs:${NC}"
-echo -e "${BLUE}Container name: node-$network-$node_version-container${NC}"
+echo -e "${BLUE}Container name: node-$network_normalized-$node_version-container${NC}"
 echo -e "${BLUE}To use this container with scripts, you can specify:${NC}"
-echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"node-$network-$node_version-container\" ./scripts/query/tip.sh${NC}"
+echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"node-$network_normalized-$node_version-container\" ./scripts/query/tip.sh${NC}"
 echo -e "${BLUE}Or let the script auto-select if it's the only running container.${NC}"
 echo
-docker logs "node-$network-$node_version-container" --follow
+docker logs "node-$network_normalized-$node_version-container" --follow
