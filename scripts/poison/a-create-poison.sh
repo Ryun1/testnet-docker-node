@@ -51,21 +51,53 @@ get_utxo() {
   echo "$utxo"
 }
 
-# Get container name for Python script (if in Docker mode)
-container_name=""
+# Helper function to select container interactively
+select_container() {
+  local prompt_text="$1"
+  if [ "$NODE_MODE" != "docker" ]; then
+    return 0
+  fi
+  
+  # Get list of running node containers
+  local containers=($(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' || true))
+  
+  if [ ${#containers[@]} -eq 0 ]; then
+    echo "Error: No running node containers found." >&2
+    exit 1
+  elif [ ${#containers[@]} -eq 1 ]; then
+    echo "${containers[0]}"
+    return 0
+  else
+    # Print prompt to stderr (select command prints menu to stderr automatically)
+    echo "$prompt_text" >&2
+    select container_name in "${containers[@]}"; do
+      if [ -n "$container_name" ]; then
+        echo "$container_name"
+        return 0
+      else
+        echo "Invalid selection." >&2
+        exit 1
+      fi
+    done
+  fi
+}
+
+# Step 0: Select node for build/sign operations
+build_node=""
 if [ "$NODE_MODE" = "docker" ]; then
   if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
-    container_name="$CARDANO_CONTAINER_NAME"
+    build_node="$CARDANO_CONTAINER_NAME"
   else
-    # Try to get container name from running containers
-    container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | head -n 1 || true)
+    build_node=$(select_container "Select node for building and signing transaction:")
   fi
+  # Set override for all build/sign operations
+  export CARDANO_CONTAINER_NAME_OVERRIDE="$build_node"
 fi
 
 echo "Test case number: $test_case_number"
 echo "Files will be saved to: $test_case_dir"
-if [ -n "$container_name" ]; then
-  echo "Using container: $container_name"
+if [ -n "$build_node" ]; then
+  echo "Using container for build/sign: $build_node"
 fi
 echo ""
 
@@ -197,8 +229,8 @@ cp "$tx_unsigned_path" "$tx_unsigned_path.backup"
 # Run Python script to poison the transaction
 # Original PoolID is bech32 (from query), poisoned PoolID is hex (from user)
 # Always pass cardano-cli command as fallback for bech32 decoding
-if [ -n "$container_name" ]; then
-  cardano_cli_cmd="docker exec -i $container_name cardano-cli"
+if [ -n "$build_node" ]; then
+  cardano_cli_cmd="docker exec -i $build_node cardano-cli"
 else
   # External node mode - use local cardano-cli
   cardano_cli_cmd="cardano-cli"
@@ -251,6 +283,19 @@ read -p "Do you want to submit this transaction? (y/n): " submit_choice < /dev/t
 if [ "$submit_choice" = "y" ] || [ "$submit_choice" = "Y" ]; then
   echo ""
   echo "Submitting transaction..."
+  
+  # Step 8: Select node for submission (can be different from build/sign node)
+  submit_node=""
+  if [ "$NODE_MODE" = "docker" ]; then
+    if [ -n "${CARDANO_CONTAINER_NAME:-}" ]; then
+      submit_node="$CARDANO_CONTAINER_NAME"
+    else
+      submit_node=$(select_container "Select node for submitting transaction:")
+    fi
+    # Set override for submission
+    export CARDANO_CONTAINER_NAME_OVERRIDE="$submit_node"
+  fi
+  
   cardano_cli conway transaction submit --tx-file "$tx_signed_path"
   
   if [ $? -eq 0 ]; then
