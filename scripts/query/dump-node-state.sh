@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+# set -euo pipefail
 
 # Get the script's directory and project root
 script_dir=$(dirname "$0")
