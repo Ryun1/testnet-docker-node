@@ -17,8 +17,7 @@ NC='\033[0m' # No color
 
 # Function to check if Docker is running
 check_docker_running() {
-  echo -e "${CYAN}Checking if Docker is running...${NC}"
-  
+
   if ! command -v docker >/dev/null 2>&1; then
     echo -e "${RED}Error: Docker is not installed.${NC}"
     echo -e "${YELLOW}Please install Docker Desktop from: https://www.docker.com/products/docker-desktop${NC}"
@@ -30,9 +29,6 @@ check_docker_running() {
     echo -e "${YELLOW}Please start Docker Desktop and try again.${NC}"
     exit 1
   fi
-  
-  echo -e "${GREEN}Docker is running.${NC}"
-  echo
 }
 
 # Check Docker before proceeding
@@ -48,6 +44,54 @@ echo "  / / /  __(__  / /_/ / / /  __/ /_/_____/ /_/ / /_/ / /__/ ,< /  __/ /  /
 echo " /_/  \___/____/\__/_/ /_/\___/\__/     /_____/\____/\___/_/|_|\___/_/        /_/ |_/\____/\__,_/\___/  "
 echo "                                                                                                        "                                                                                                 
 echo
+
+# Function to list existing node directories
+list_existing_node_directories() {
+  local script_dir=$(dirname "$0")
+  local project_root=$(cd "$script_dir" && pwd)
+  local node_dirs
+  local found_any=false
+  
+  # Find all node-* directories
+  node_dirs=$(find "$project_root" -maxdepth 1 -type d -name "node-*" 2>/dev/null | sort || true)
+  
+  if [ -n "$node_dirs" ]; then
+    echo -e "${CYAN}Existing Node directories:${NC}"
+    while IFS= read -r dir; do
+      [ -z "$dir" ] && continue
+      local dirname=$(basename "$dir")
+      # Extract network and version from directory name
+      # Pattern: node-network-version or node-network
+      if [[ "$dirname" =~ ^node-(.+)-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+        # Has version: node-network-version
+        local network="${BASH_REMATCH[1]}"
+        local version="${BASH_REMATCH[2]}"
+        # Capitalize first letter of network
+        network=$(echo "$network" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+        # Handle special case: sanchonet -> SanchoNet
+        if [ "$network" = "Sanchonet" ]; then
+          network="SanchoNet"
+        fi
+        echo -e "  ${GREEN}-${NC} ${CYAN}$network $version${NC}"
+        found_any=true
+      elif [[ "$dirname" =~ ^node-(.+)$ ]]; then
+        # No version: node-network
+        local network="${BASH_REMATCH[1]}"
+        # Capitalize first letter of network
+        network=$(echo "$network" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+        # Handle special case: sanchonet -> SanchoNet
+        if [ "$network" = "Sanchonet" ]; then
+          network="SanchoNet"
+        fi
+        echo -e "  ${GREEN}-${NC} ${CYAN}$network${NC}"
+        found_any=true
+      fi
+    done <<< "$node_dirs"
+    if [ "$found_any" = true ]; then
+      echo ""
+    fi
+  fi
+}
 
 # Function to show currently running nodes
 show_running_nodes() {
@@ -69,12 +113,15 @@ show_running_nodes() {
   fi
 }
 
+# Show existing node directories at startup
+list_existing_node_directories
+
 # Show running nodes at startup
 show_running_nodes
 
 # Prompt the user to select connection type first
 echo -e "${CYAN}How would you like to connect to a Cardano node?${NC}"
-connection_options=("Start a new Docker node" "Configure connection to an external node via socket file")
+connection_options=("Start a Docker node" "Configure connection to an external node via socket file")
 select connection_type in "${connection_options[@]}"; do
   if [ -n "$connection_type" ]; then
     echo -e "${GREEN}You have selected: $connection_type${NC}"
