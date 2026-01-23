@@ -6,10 +6,43 @@ services:
     network_mode: "host"
     build:
       context: ./
+      dockerfile: Dockerfile
       args:
         CARDANO_NODE_VERSION: ${NODE_VERSION}
         CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
         CARDANO_NODE_PORT: ${NODE_PORT}
+    restart: always
+    volumes:
+      - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db
+      - ./node-${NETWORK}-${NODE_VERSION}/config:/config
+      - ./node-${NETWORK}-${NODE_VERSION}/ipc:/ipc
+      - ./keys:/keys
+      - ./txs:/txs
+      - ./dumps:/dumps
+      - ./utilities:/utilities
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+  amaru-node-${NETWORK}-${NODE_VERSION}:
+    container_name: amaru-${NETWORK}-${NODE_VERSION}-container
+    network_mode: "host"
+    build:
+      context: ./
+      dockerfile: Dockerfile.amaru
+      args:
+        AMARU_VERSION: ${AMARU_VERSION:-latest}
+        AMARU_NETWORK: ${AMARU_NETWORK}
+        AMARU_PEER_ADDRESS: ${AMARU_PEER_ADDRESS}
+        AMARU_PORT: ${NODE_PORT}
+    # Try different command structures - adjust based on Amaru's actual CLI
+    # Option 1: Use environment variables (if Amaru supports them)
+    # Option 2: Pass command-line arguments
+    # For now, let the image use its default entrypoint and rely on environment variables
+    # If that doesn't work, uncomment and adjust the command below:
+    # command: ["--network", "${AMARU_NETWORK}", "--peer-address", "${AMARU_PEER_ADDRESS}"]
     restart: always
     volumes:
       - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db

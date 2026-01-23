@@ -3,8 +3,8 @@ set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
 
-METADATA_URL="ipfs://bafkreihmmaxya6rwrnh36zfl4eaijv67oamdxbj6r3z3nfbwmn55sj4ime"
-METADATA_HASH="2df56fcaaa6d6bd73e792b871b746cd9c6209e95a2f0e6344502be9f7abf5567"
+METADATA_URL="ipfs://bafkreidpcmogdet4beysyxq4u7l2qywplbfnahudyevqjcu2yxiceurn3u"
+METADATA_HASH="ed54ad31d48602ce7c30eba13c209c71dcb63d6eb9906345a3367acec65175ad"
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -59,6 +59,7 @@ get_utxo() {
 echo "Creating and submitting info governance action."
 
 cardano_cli conway governance action create-info \
+  --testnet \
   --governance-action-deposit $(cardano_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url $METADATA_URL \

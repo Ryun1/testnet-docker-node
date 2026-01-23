@@ -1,0 +1,29 @@
+# Amaru Cardano Node Dockerfile
+# Uses pre-built image from GitHub Container Registry
+ARG AMARU_VERSION=latest
+
+FROM ghcr.io/pragma-org/amaru:${AMARU_VERSION}
+
+# Redefine build arguments for use in this stage
+ARG AMARU_NETWORK
+ARG AMARU_PEER_ADDRESS
+ARG AMARU_PORT=3001
+
+# Set environment variables
+# The Amaru Docker image may use these environment variables for configuration
+ENV AMARU_NETWORK=${AMARU_NETWORK}
+ENV AMARU_PEER_ADDRESS=${AMARU_PEER_ADDRESS}
+ENV AMARU_PORT=${AMARU_PORT}
+ENV CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+
+# Set working directory (should be writable)
+WORKDIR /app
+
+# Copy entrypoint wrapper script with execute permissions to a writable location
+# Use --chmod to set permissions during copy (works even with non-root users)
+COPY --chmod=755 scripts/amaru/entrypoint.sh /app/entrypoint.sh
+
+# Use the wrapper script as entrypoint
+# This allows us to adjust the command structure without rebuilding the base image
+ENTRYPOINT ["/app/entrypoint.sh"]
+
