@@ -16,8 +16,8 @@ if [ -n "$CARDANO_CONTAINER_NAME_OVERRIDE" ]; then
   fi
 fi
 
-# Get the list of running containers
-running_containers=$(docker ps --format '{{.Names}}')
+# Get the list of running containers (filter for Cardano and Amaru node containers)
+running_containers=$(docker ps --format '{{.Names}}' | grep -E "^(node|amaru)-[^-]+-[^-]+-container$" || true)
 
 # Convert the running containers to an array
 IFS=$'\n' read -r -d '' -a running_containers <<< "$running_containers"

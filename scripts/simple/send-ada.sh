@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-LOVELACE_AMOUNT=10000000
-ADDRESS="addr_test1wqft2yqkp8wj5k5k7dy9725kxkcd4ep4ycp5uczuqtt3vqcgh63dt"
+LOVELACE_AMOUNT=1230000000000
+ADDRESS="addr_test1qphtuq30j8tvmq0v38l9zye7sun36n6nzyygcc2mqds2sdssfd7ly7km85wtqgdempk3rfwn96px6l5k5n6ezw8ujgps20sdh8"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Get the script's directory and project root
@@ -45,19 +45,19 @@ cardano_cli conway transaction build \
  --change-address $(cat $keys_dir/payment.addr) \
  --out-file "$tx_unsigned_path"
 
-cardano_cli conway transaction sign \
-  --tx-body-file "$tx_unsigned_path" \
-  --signing-key-file "$keys_dir/payment.skey" \
-  --out-file "$tx_signed_path"
+# cardano_cli conway transaction sign \
+#   --tx-body-file "$tx_unsigned_path" \
+#   --signing-key-file "$keys_dir/payment.skey" \
+#   --out-file "$tx_signed_path"
 
-# Check signed transaction file was created
-if [ ! -f "$tx_signed_path" ]; then
-  echo "Error: Failed to create signed transaction file"
-  exit 1
-fi
+# # Check signed transaction file was created
+# if [ ! -f "$tx_signed_path" ]; then
+#   echo "Error: Failed to create signed transaction file"
+#   exit 1
+# fi
 
-# Submit the transaction
-echo "Submitting transaction"
+# # Submit the transaction
+# echo "Submitting transaction"
 
 
-cardano_cli conway transaction submit --tx-file $tx_signed_path
+# cardano_cli conway transaction submit --tx-file $tx_signed_path

@@ -7,7 +7,9 @@ interact with Cardano nodes running in docker or connect via socket file.
 Allowing the user to run multiple dockerised nodes,
 with different versions and across networks.
 
-**Docker node version choices:** `10.5.3`, `10.5.1`
+**Node Types:** Haskell (Cardano node) and Amaru (Rust)
+
+**Docker node version choices:** `10.5.3`, `10.5.1` (for Haskell nodes)
 
 ## Prerequisites
 
@@ -93,8 +95,8 @@ chmod +x ./start-node.sh ./stop-nodes.sh ./scripts/*
 We have a start script which:
 
 - pulls the latest testnet node configs
-- pulls the Cardano node docker image
-- builds and runs the Cardano node image
+- pulls the node docker image (Haskell or Amaru)
+- builds and runs the node image
 - pushes the node logs to the terminal
 
 In your terminal execute:
@@ -103,7 +105,12 @@ In your terminal execute:
 ./start-node.sh
 ```
 
-Then choose which network to work on.
+Then choose:
+1. Which network to work on
+2. Which node version (for Haskell nodes)
+3. Which node type: **Haskell** or **Amaru**
+
+**Amaru Nodes:** Amaru is a Rust-based Cardano node client that provides an alternative to the standard Haskell Cardano node. It uses the same configuration files and socket interface, making it compatible with existing `cardano-cli` tools. Amaru nodes are built from the pre-built Docker image `ghcr.io/pragma-org/amaru:latest`.
 
 If you want to stop the logs (but the node is still running) you can press `control + c`.
 
@@ -174,7 +181,7 @@ You will have to wait till fully synced node before being able to interact with 
 
 ### Stop node
 
-This script will stop your Cardano node, remember to run this when you are done using your node.
+This script will stop all running node containers (both Haskell and Amaru), remember to run this when you are done using your nodes.
 
 In your second terminal execute:
 
@@ -243,7 +250,7 @@ Make sure you have a node running for these.
 
 ## Using Multiple Nodes and External Nodes
 
-This toolkit supports connecting to multiple Cardano nodes simultaneously - both Docker containers and external nodes running outside of Docker.
+This toolkit supports connecting to multiple nodes simultaneously - both Docker containers (Haskell and Amaru) and external nodes running outside of Docker.
 You can run scripts against different networks and nodes at the same time.
 
 ### External Node Configuration
@@ -256,11 +263,15 @@ which will prompt you for the values and confirm them before use.
 
 ### Multiple Docker Containers
 
-When multiple Docker containers are running, the toolkit will:
+When multiple Docker containers are running (Haskell or Amaru), the toolkit will:
 
 - **Automatically select** the only container if only one is running
 - **Prompt you to choose** if multiple containers are running (interactive mode)
 - **Use the first container** if running non-interactively (no TTY)
+
+**Container Naming:**
+- Haskell nodes: `node-{network}-{version}-container`
+- Amaru nodes: `amaru-{network}-{version}-container`
 
 ### Requirements
 

@@ -100,7 +100,7 @@ show_running_nodes() {
   running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
 
   if [ -n "$running_nodes" ]; then
-    echo -e "${CYAN}Currently running Cardano node(s):${NC}"
+    echo -e "${CYAN}Currently running Haskell node(s):${NC}"
     echo "$running_nodes" | while read -r container; do
       # Extract network and version from container name (node-network-version-container)
       local network_version=$(echo "$container" | sed 's/node-\(.*\)-container/\1/')
@@ -108,7 +108,7 @@ show_running_nodes() {
     done
     echo ""
   else
-    echo -e "${YELLOW}No Cardano nodes are currently running.${NC}"
+    echo -e "${YELLOW}No Haskell nodes are currently running.${NC}"
     echo ""
   fi
 }
@@ -235,9 +235,13 @@ echo -e "${CYAN}Setting up Docker node...${NC}"
 # Define the list of available node versions
 available_versions=( "10.5.3" "10.5.1")
 
+# Define the list of available node types
+available_node_types=("Haskell" "Amaru")
+
 # Initialize variables to avoid unbound variable errors
 network=""
 node_version=""
+node_type=""
 
 # Check if running in non-interactive mode (e.g., CI/CD)
 if [ ! -t 0 ]; then
@@ -251,13 +255,29 @@ if [ ! -t 0 ]; then
     exit 1
   fi
   
-  read -r version_choice || true
-  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
-    node_version="${available_versions[$((version_choice - 1))]}"
-    echo -e "${GREEN}Selected node version: $node_version${NC}"
+  read -r node_type_choice || true
+  if [ -n "$node_type_choice" ] && [ "$node_type_choice" -ge 1 ] && [ "$node_type_choice" -le ${#available_node_types[@]} ]; then
+    node_type="${available_node_types[$((node_type_choice - 1))]}"
+    echo -e "${GREEN}Selected node type: $node_type${NC}"
   else
-    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
+    echo -e "${RED}Error: Invalid node type selection: $node_type_choice${NC}"
     exit 1
+  fi
+  
+  # Only ask for version if Haskell is selected
+  if [ "$node_type" = "Haskell" ]; then
+    read -r version_choice || true
+    if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
+      node_version="${available_versions[$((version_choice - 1))]}"
+      echo -e "${GREEN}Selected node version: $node_version${NC}"
+    else
+      echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
+      exit 1
+    fi
+  else
+    # Amaru uses "latest" version
+    node_version="latest"
+    echo -e "${GREEN}Using Amaru version: latest${NC}"
   fi
 else
   # Interactive mode: use select
@@ -271,15 +291,32 @@ else
     fi
   done
   
-  echo -e "${CYAN}Please select a node version:${NC}"
-  select node_version in "${available_versions[@]}"; do
-    if [ -n "$node_version" ]; then
-      echo -e "${GREEN}You have selected: $node_version${NC}"
+  echo -e "${CYAN}Please select a node type:${NC}"
+  select node_type in "${available_node_types[@]}"; do
+    if [ -n "$node_type" ]; then
+      echo -e "${GREEN}You have selected: $node_type${NC}"
       break
     else
       echo -e "${RED}Invalid selection. Please try again.${NC}"
     fi
   done
+  
+  # Only ask for version if Haskell is selected
+  if [ "$node_type" = "Haskell" ]; then
+    echo -e "${CYAN}Please select a node version:${NC}"
+    select node_version in "${available_versions[@]}"; do
+      if [ -n "$node_version" ]; then
+        echo -e "${GREEN}You have selected: $node_version${NC}"
+        break
+      else
+        echo -e "${RED}Invalid selection. Please try again.${NC}"
+      fi
+    done
+  else
+    # Amaru uses "latest" version
+    node_version="latest"
+    echo -e "${GREEN}Using Amaru version: latest${NC}"
+  fi
 fi
 
 # Normalize network name for directory/container naming
@@ -295,6 +332,13 @@ assign_port_for_version() {
   local version=$1
   local base_port=3001
   
+  # Handle "latest" version (used by Amaru) - use a fixed offset
+  if [ "$version" = "latest" ]; then
+    local port=$((base_port + 99))  # Use port 3100 for "latest"
+    echo $port
+    return
+  fi
+  
   # Create a simple hash from version string to get consistent port assignment
   # Convert version like "10.5.1" to a number for port offset
   # Remove dots and take modulo to get offset (0-99 range)
@@ -306,7 +350,7 @@ assign_port_for_version() {
   echo $port
 }
 
-# Validate that both network and node_version are set
+# Validate that network, node_version, and node_type are set
 if [ -z "$network" ]; then
   echo -e "${RED}Error: Network not selected${NC}"
   exit 1
@@ -317,19 +361,24 @@ if [ -z "$node_version" ]; then
   exit 1
 fi
 
-# Check for running Cardano node containers
+if [ -z "$node_type" ]; then
+  echo -e "${RED}Error: Node type not selected${NC}"
+  exit 1
+fi
+
+# Check for running node containers (both Haskell and Amaru)
 check_running_nodes() {
   local running_nodes
-  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^(node|amaru)-[^-]+-[^-]+-container$" || true)
   
   if [ -n "$running_nodes" ]; then
-    echo -e "${YELLOW}Warning: You have the following Cardano node(s) already running:${NC}"
+    echo -e "${YELLOW}Warning: You have the following node(s) already running:${NC}"
     echo "$running_nodes" | while read -r container; do
       echo -e "  ${CYAN}- $container${NC}"
     done
     echo ""
   else
-    echo -e "${GREEN}No Cardano nodes are currently running.${NC}"
+    echo -e "${GREEN}No nodes are currently running.${NC}"
     echo ""
   fi
   
@@ -338,7 +387,14 @@ check_running_nodes() {
 
 # Check if the specific node is already running or exists
 check_duplicate_node() {
-  local target_container="node-$network_normalized-$node_version-container"
+  local container_prefix
+  if [ "$node_type" = "Amaru" ]; then
+    container_prefix="amaru"
+  else
+    container_prefix="node"
+  fi
+  
+  local target_container="${container_prefix}-$network_normalized-$node_version-container"
   local is_running
   local exists
   
@@ -351,7 +407,7 @@ check_duplicate_node() {
   if [ -n "$is_running" ]; then
     echo -e "${RED}Error: Node '$target_container' is already running!${NC}"
     echo -e "${YELLOW}Please stop it first using: ./stop-nodes.sh${NC}"
-    echo -e "${YELLOW}Or use a different network/version combination.${NC}"
+    echo -e "${YELLOW}Or use a different network/version/type combination.${NC}"
     exit 1
   elif [ -n "$exists" ]; then
     echo -e "${YELLOW}Warning: Container '$target_container' exists but is not running.${NC}"
@@ -521,13 +577,59 @@ export NODE_PORT=$NODE_PORT
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 
+# Set node type and Amaru-specific variables
+export NODE_TYPE=$node_type
+if [ "$node_type" = "Amaru" ]; then
+  # Set Amaru network name (convert to lowercase)
+  export AMARU_NETWORK=$(echo "$network_normalized" | tr '[:upper:]' '[:lower:]')
+  
+  # Extract peer address from topology.json
+  # Try to get the first bootstrap peer or local root access point
+  if [ -f "$config_dir/topology.json" ]; then
+    # Try bootstrap peers first
+    peer_address=$(jq -r '.bootstrapPeers[0].address // empty' "$config_dir/topology.json" 2>/dev/null || echo "")
+    peer_port=$(jq -r '.bootstrapPeers[0].port // empty' "$config_dir/topology.json" 2>/dev/null || echo "")
+    
+    # If no bootstrap peer, try local roots
+    if [ -z "$peer_address" ]; then
+      peer_address=$(jq -r '.localRoots[0].accessPoints[0].address // empty' "$config_dir/topology.json" 2>/dev/null || echo "")
+      peer_port=$(jq -r '.localRoots[0].accessPoints[0].port // empty' "$config_dir/topology.json" 2>/dev/null || echo "")
+    fi
+    
+    # Default to localhost:3001 if no peer found
+    if [ -z "$peer_address" ]; then
+      peer_address="127.0.0.1"
+      peer_port="3001"
+      echo -e "${YELLOW}Warning: No peer address found in topology.json, using default: $peer_address:$peer_port${NC}"
+    fi
+    
+    export AMARU_PEER_ADDRESS="${peer_address}:${peer_port}"
+    echo -e "${BLUE}Amaru peer address: $AMARU_PEER_ADDRESS${NC}"
+  else
+    # Default peer address if topology.json doesn't exist
+    export AMARU_PEER_ADDRESS="127.0.0.1:3001"
+    echo -e "${YELLOW}Warning: topology.json not found, using default peer address: $AMARU_PEER_ADDRESS${NC}"
+  fi
+  
+  export AMARU_VERSION="latest"
+fi
+
+# Determine service name and container name based on node type
+if [ "$node_type" = "Amaru" ]; then
+  SERVICE_NAME="amaru-node-${NETWORK}-${NODE_VERSION}"
+  CONTAINER_NAME="amaru-$network_normalized-$node_version-container"
+else
+  SERVICE_NAME="cardano-node-${NETWORK}-${NODE_VERSION}"
+  CONTAINER_NAME="node-$network_normalized-$node_version-container"
+fi
+
 # Substitute the variables in the docker-compose.yml file and start the Docker container
 echo -e "${CYAN}Starting the Docker container...${NC}"
 # Use docker compose (plugin) if available, fallback to docker-compose (standalone)
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-  envsubst < docker-compose.yml | docker compose -f - up -d --build
+  envsubst < docker-compose.yml | docker compose -f - up -d --build $SERVICE_NAME
 elif command -v docker-compose >/dev/null 2>&1; then
-  envsubst < docker-compose.yml | docker-compose -f - up -d --build
+  envsubst < docker-compose.yml | docker-compose -f - up -d --build $SERVICE_NAME
 else
   echo -e "${RED}Error: Neither 'docker compose' nor 'docker-compose' is available${NC}"
   exit 1
@@ -535,9 +637,9 @@ fi
 
 # Forward the logs to the terminal
 echo -e "${GREEN}Docker container logs:${NC}"
-echo -e "${BLUE}Container name: node-$network_normalized-$node_version-container${NC}"
+echo -e "${BLUE}Container name: $CONTAINER_NAME${NC}"
 echo -e "${BLUE}To use this container with scripts, you can specify:${NC}"
-echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"node-$network_normalized-$node_version-container\" ./scripts/query/tip.sh${NC}"
+echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"$CONTAINER_NAME\" ./scripts/query/tip.sh${NC}"
 echo -e "${BLUE}Or let the script auto-select if it's the only running container.${NC}"
 echo
-docker logs "node-$network_normalized-$node_version-container" --follow
+docker logs "$CONTAINER_NAME" --follow
