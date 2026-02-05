@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("mainnet" "preprod" "preview" "sanchonet-pig" "sanchonet-chicken")
+available_networks=("mainnet" "preprod" "preview" "sanchonet")
 
 
 # If user selected external node configuration
@@ -233,7 +233,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=( "10.5.3" "10.5.1")
+available_versions=( "10.5.3" "10.5.1" "10.6.1")
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -282,12 +282,12 @@ else
   done
 fi
 
-# Normalize network name for directory/container naming
-# sanchonet-pig and sanchonet-chicken both normalize to sanchonet
-network_normalized="$network"
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
-  network_normalized="sanchonet"
-fi
+# # Normalize network name for directory/container naming
+# # sanchonet-pig and sanchonet-chicken both normalize to sanchonet
+# network_normalized="$network"
+# if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+#   network_normalized="sanchonet"
+# fi
 
 # Function to assign a unique port based on version
 # This ensures different versions on the same network use different ports
@@ -395,10 +395,8 @@ dumps_dir="$base_dir/dumps/$network_normalized"
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+if [ "$network" = "sanchonet" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
-else
-  config_base_url="https://book.play.dev.cardano.org/environments/$network/"
 fi
 
 # Function to create a directory if it doesn't exist
