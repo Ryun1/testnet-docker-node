@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("mainnet" "preprod" "preview" "sanchonet-pig" "sanchonet-chicken")
+available_networks=("mainnet" "preprod" "preview" "sanchonet-10.6.1-config" "sanchonet-10.5.3-config")
 
 
 # If user selected external node configuration
@@ -233,7 +233,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=( "10.5.3" "10.5.1")
+available_versions=( "10.5.3" "10.5.1" "10.6.1")
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -283,9 +283,9 @@ else
 fi
 
 # Normalize network name for directory/container naming
-# sanchonet-pig and sanchonet-chicken both normalize to sanchonet
+# sanchonet-default and sanchonet-mikes-config both normalize to sanchonet
 network_normalized="$network"
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+if [ "$network" = "sanchonet-10.5.3-config" ] || [ "$network" = "sanchonet-10.6.1-config" ]; then
   network_normalized="sanchonet"
 fi
 
@@ -294,7 +294,12 @@ fi
 assign_port_for_version() {
   local version=$1
   local base_port=3001
-  
+
+  # Hardcoded port overrides for specific versions
+  case "$version" in
+    "10.5.3") echo 5155; return ;;
+  esac
+
   # Create a simple hash from version string to get consistent port assignment
   # Convert version like "10.5.1" to a number for port offset
   # Remove dots and take modulo to get offset (0-99 range)
@@ -302,7 +307,7 @@ assign_port_for_version() {
   local version_num=$((10#$version_no_dots))  # Force base-10 interpretation
   local offset=$((version_num % 100))
   local port=$((base_port + offset))
-  
+
   echo $port
 }
 
@@ -395,10 +400,13 @@ dumps_dir="$base_dir/dumps/$network_normalized"
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+if [ "$network" = "sanchonet-10.6.1-config" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
-else
-  config_base_url="https://book.play.dev.cardano.org/environments/$network/"
+fi
+
+# Base URL for node config files
+if [ "$network" = "sanchonet-10.5.3-config" ]; then
+  config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/c4518aba61287c07aa70f4c2a8250aae0e4be57a/genesis/"
 fi
 
 # Function to create a directory if it doesn't exist
@@ -448,67 +456,68 @@ config_files=(
   "conway-genesis.json"
   "peer-snapshot.json"
   "guardrails-script.plutus"
+  "dijkstra-genesis.json"
 )
 
 # Change directory to the config directory and download files
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
 for file in "${config_files[@]}"; do
-  # Skip topology.json for sanchonet-chicken (we'll create a custom one)
-  if [ "$network" = "sanchonet-chicken" ] && [ "$file" = "topology.json" ]; then
-    echo -e "${YELLOW}Skipping topology.json for sanchonet-chicken (will use custom topology)${NC}"
+  # Skip topology.json for sanchonet (we'll create a custom one)
+  if [ "$network" = "sanchonet" ] && [ "$file" = "topology.json" ]; then
+    echo -e "${YELLOW}Skipping topology.json for sanchonet (will use custom topology)${NC}"
     continue
   fi
   echo -e "${BLUE}Downloading: $file${NC}"
   curl --silent -O -J -L "${config_base_url}${file}"
 done
 
-# Create custom topology.json for sanchonet-chicken
-if [ "$network" = "sanchonet-chicken" ]; then
-  echo -e "${BLUE}Creating custom topology.json for sanchonet-chicken${NC}"
-  cat > topology.json << 'EOF'
-{
-  "bootstrapPeers": [
-    {
-      "address": "sanchorelay1.intertreecryptoconsultants.com",
-      "port": 6002
-    }
-   ],
-  "localRoots": [
-    {
-      "accessPoints": [
-     {
-      "address": "sanchorelay1.intertreecryptoconsultants.com",
-      "port": 6002
-     },
-     {
-      "address": "9.tcp.eu.ngrok.io",
-      "port": 20802
-     },
-     {
-      "address": "34.19.153.32",
-      "port": 6002
-     },
-     {
-      "address": "relay.hephy.io",
-      "port": 9000
-     }
-       ],
-      "advertise": false,
-      "trustable": true,
-      "valency": 4
-    }
-  ],
-  "publicRoots": [
-    {
-      "accessPoints": [],
-      "advertise": false
-    }
-  ],
-  "useLedgerAfterSlot": -1
-}
-EOF
-fi
+# # Create custom topology.json for sanchonet-default
+# if [ "$network" = "sanchonet-default" ]; then
+#   echo -e "${BLUE}Creating custom topology.json for sanchonet-default${NC}"
+#   cat > topology.json << 'EOF'
+# {
+#   "bootstrapPeers": [
+#     {
+#       "address": "sanchorelay1.intertreecryptoconsultants.com",
+#       "port": 6002
+#     }
+#    ],
+#   "localRoots": [
+#     {
+#       "accessPoints": [
+#      {
+#       "address": "sanchorelay1.intertreecryptoconsultants.com",
+#       "port": 6002
+#      },
+#      {
+#       "address": "9.tcp.eu.ngrok.io",
+#       "port": 20802
+#      },
+#      {
+#       "address": "34.19.153.32",
+#       "port": 6002
+#      },
+#      {
+#       "address": "relay.hephy.io",
+#       "port": 9000
+#      }
+#        ],
+#       "advertise": false,
+#       "trustable": true,
+#       "valency": 4
+#     }
+#   ],
+#   "publicRoots": [
+#     {
+#       "accessPoints": [],
+#       "advertise": false
+#     }
+#   ],
+#   "useLedgerAfterSlot": -1
+# }
+# EOF
+# fi
 
 # Return to the base directory
 cd "$base_dir" || exit
