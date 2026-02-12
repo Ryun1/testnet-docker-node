@@ -1,23 +1,60 @@
 #!/bin/bash
 set -euo pipefail
 
-# Stop all cardano node containers matching the pattern node-*-*-container
-# This handles versioned containers (e.g., node-preprod-10.5.3-container)
-echo "Stopping all Cardano node containers..."
+# Define colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No color
 
-# Get all running containers and filter for node-*-*-container pattern
+# Get all running containers matching the node pattern
 containers=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
 
 if [ -z "$containers" ]; then
-  echo "No Cardano node containers found running."
+  echo -e "${YELLOW}No Cardano node containers found running.${NC}"
   exit 0
 fi
 
-# Stop each container
-for container in $containers; do
-  echo "Stopping container: $container"
+# Convert to array (compatible with Bash 3.x on macOS)
+container_list=()
+while IFS= read -r line; do
+  container_list+=("$line")
+done <<< "$containers"
+count=${#container_list[@]}
+
+echo -e "${CYAN}Running Cardano node containers:${NC}"
+for i in "${!container_list[@]}"; do
+  echo -e "  ${GREEN}$((i + 1))${NC}) ${BLUE}${container_list[$i]}${NC}"
+done
+echo -e "  ${GREEN}$((count + 1))${NC}) ${RED}Stop all${NC}"
+echo
+
+# Prompt user to select which node(s) to stop
+echo -e "${CYAN}Select a container to stop (1-$((count + 1))):${NC}"
+read -r choice < /dev/tty
+
+# Validate input
+if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt $((count + 1)) ]; then
+  echo -e "${RED}Invalid selection.${NC}"
+  exit 1
+fi
+
+# Build list of containers to stop
+if [ "$choice" -eq $((count + 1)) ]; then
+  stop_list=("${container_list[@]}")
+else
+  stop_list=("${container_list[$((choice - 1))]}")
+fi
+
+# Stop and remove selected containers
+for container in "${stop_list[@]}"; do
+  echo -e "${YELLOW}Stopping: $container${NC}"
   docker stop "$container" 2>/dev/null || true
   docker rm "$container" 2>/dev/null || true
+  echo -e "${GREEN}Stopped: $container${NC}"
 done
 
-echo "All Cardano node containers stopped."
+echo
+echo -e "${GREEN}Done.${NC}"
