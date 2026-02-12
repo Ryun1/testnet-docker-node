@@ -450,6 +450,11 @@ if [ "$node_version" = "10.6.2" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
+# add checkpoints.json for preview and mainnet (not available for sanchonet or preprod)
+if [ "$network" = "preview" ] || [ "$network" = "mainnet" ]; then
+  config_files+=("checkpoints.json")
+fi
+
 # Change directory to the config directory and download files
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
