@@ -24,28 +24,34 @@ while IFS= read -r line; do
 done <<< "$containers"
 count=${#container_list[@]}
 
-echo -e "${CYAN}Running Cardano node containers:${NC}"
-for i in "${!container_list[@]}"; do
-  echo -e "  ${GREEN}$((i + 1))${NC}) ${BLUE}${container_list[$i]}${NC}"
-done
-echo -e "  ${GREEN}$((count + 1))${NC}) ${RED}Stop all${NC}"
-echo
-
-# Prompt user to select which node(s) to stop
-echo -e "${CYAN}Select a container to stop (1-$((count + 1))):${NC}"
-read -r choice < /dev/tty
-
-# Validate input
-if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt $((count + 1)) ]; then
-  echo -e "${RED}Invalid selection.${NC}"
-  exit 1
-fi
-
-# Build list of containers to stop
-if [ "$choice" -eq $((count + 1)) ]; then
+# Non-interactive mode (CI or piped input): stop all containers automatically
+if [ ! -t 0 ] && [ ! -t 1 ]; then
+  echo "Stopping all Cardano node containers..."
   stop_list=("${container_list[@]}")
 else
-  stop_list=("${container_list[$((choice - 1))]}")
+  # Interactive mode: let user choose
+  echo -e "${CYAN}Running Cardano node containers:${NC}"
+  for i in "${!container_list[@]}"; do
+    echo -e "  ${GREEN}$((i + 1))${NC}) ${BLUE}${container_list[$i]}${NC}"
+  done
+  echo -e "  ${GREEN}$((count + 1))${NC}) ${RED}Stop all${NC}"
+  echo
+
+  echo -e "${CYAN}Select a container to stop (1-$((count + 1))):${NC}"
+  read -r choice < /dev/tty
+
+  # Validate input
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt $((count + 1)) ]; then
+    echo -e "${RED}Invalid selection.${NC}"
+    exit 1
+  fi
+
+  # Build list of containers to stop
+  if [ "$choice" -eq $((count + 1)) ]; then
+    stop_list=("${container_list[@]}")
+  else
+    stop_list=("${container_list[$((choice - 1))]}")
+  fi
 fi
 
 # Stop and remove selected containers
