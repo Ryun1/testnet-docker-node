@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # errors are handled gracefully to tell the user
-# set -euo pipefail
+set -euo pipefail
 
 # ----------------------------------------
 ALLOW_MAINNET_EXTERNAL="false"
@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("mainnet" "preprod" "preview" "sanchonet-pig" "sanchonet-chicken")
+available_networks=("mainnet" "preprod" "preview" "sanchonet")
 
 
 # If user selected external node configuration
@@ -233,7 +233,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=( "10.5.3" "10.5.1")
+available_versions=( "10.5.3" "10.5.4" "10.6.2" )
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -283,11 +283,7 @@ else
 fi
 
 # Normalize network name for directory/container naming
-# sanchonet-pig and sanchonet-chicken both normalize to sanchonet
 network_normalized="$network"
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
-  network_normalized="sanchonet"
-fi
 
 # Function to assign a unique port based on version
 # This ensures different versions on the same network use different ports
@@ -395,7 +391,7 @@ dumps_dir="$base_dir/dumps/$network_normalized"
 utilities_dir="$base_dir/utilities"
 
 # Base URL for node config files
-if [ "$network" = "sanchonet-pig" ] || [ "$network" = "sanchonet-chicken" ]; then
+if [ "$network" = "sanchonet" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
 else
   config_base_url="https://book.play.dev.cardano.org/environments/$network/"
@@ -447,8 +443,17 @@ config_files=(
   "alonzo-genesis.json"
   "conway-genesis.json"
   "peer-snapshot.json"
-  "guardrails-script.plutus"
 )
+
+# add dijkstra-genesis.json for 10.6.2
+if [ "$node_version" = "10.6.2" ]; then
+  config_files+=("dijkstra-genesis.json")
+fi
+
+# add checkpoints.json for preview and mainnet (not available for sanchonet or preprod)
+if [ "$network" = "preview" ] || [ "$network" = "mainnet" ]; then
+  config_files+=("checkpoints.json")
+fi
 
 # Change directory to the config directory and download files
 echo -e "${CYAN}Downloading configuration files...${NC}"
@@ -462,53 +467,6 @@ for file in "${config_files[@]}"; do
   echo -e "${BLUE}Downloading: $file${NC}"
   curl --silent -O -J -L "${config_base_url}${file}"
 done
-
-# Create custom topology.json for sanchonet-chicken
-if [ "$network" = "sanchonet-chicken" ]; then
-  echo -e "${BLUE}Creating custom topology.json for sanchonet-chicken${NC}"
-  cat > topology.json << 'EOF'
-{
-  "bootstrapPeers": [
-    {
-      "address": "sanchorelay1.intertreecryptoconsultants.com",
-      "port": 6002
-    }
-   ],
-  "localRoots": [
-    {
-      "accessPoints": [
-     {
-      "address": "sanchorelay1.intertreecryptoconsultants.com",
-      "port": 6002
-     },
-     {
-      "address": "9.tcp.eu.ngrok.io",
-      "port": 20802
-     },
-     {
-      "address": "34.19.153.32",
-      "port": 6002
-     },
-     {
-      "address": "relay.hephy.io",
-      "port": 9000
-     }
-       ],
-      "advertise": false,
-      "trustable": true,
-      "valency": 4
-    }
-  ],
-  "publicRoots": [
-    {
-      "accessPoints": [],
-      "advertise": false
-    }
-  ],
-  "useLedgerAfterSlot": -1
-}
-EOF
-fi
 
 # Return to the base directory
 cd "$base_dir" || exit
