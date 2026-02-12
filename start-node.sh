@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # errors are handled gracefully to tell the user
-# set -euo pipefail
+set -euo pipefail
 
 # ----------------------------------------
 ALLOW_MAINNET_EXTERNAL="false"
