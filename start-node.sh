@@ -233,7 +233,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=( "10.6.2" "10.5.3" "10.5.1")
+available_versions=( "10.5.3" "10.5.1" "10.6.2" )
 
 # Initialize variables to avoid unbound variable errors
 network=""
