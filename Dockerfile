@@ -1,5 +1,5 @@
 # Define build-time variables for FROM statement
-ARG CARDANO_NODE_VERSION=10.5.3
+ARG CARDANO_NODE_VERSION=10.6.2
 
 FROM ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
 
