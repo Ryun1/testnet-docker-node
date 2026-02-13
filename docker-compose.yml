@@ -20,6 +20,7 @@ services:
       - ./keys:/keys
       - ./txs:/txs
       - ./dumps:/dumps
+      - ./plutus:/plutus
       - ./utilities:/utilities
     logging:
       driver: "json-file"

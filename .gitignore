@@ -8,7 +8,7 @@ utilities/
 node-*/
 /scripts/poison
 /scripts/poison/
-/plutus
+plutus/
 
 # Python virtual environment
 venv/
@@ -17,3 +17,5 @@ __pycache__/
 
 # Config file (user-specific, example is tracked)
 config/cardano-node-config.json
+
+.scala-build/

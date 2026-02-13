@@ -28,6 +28,8 @@ convert_to_container_path() {
     path=$(echo "$path" | sed "s|^$base_dir/txs|/txs|")
     path=$(echo "$path" | sed "s|^$base_dir/keys|/keys|")
     path=$(echo "$path" | sed "s|^$base_dir/dumps|/dumps|")
+    path=$(echo "$path" | sed "s|^$base_dir/plutus|/plutus|")
+    path=$(echo "$path" | sed "s|^$base_dir/utilities|/utilities|")
   fi
   echo "$path"
 }
@@ -217,9 +219,9 @@ cardano_cli() {
     done
     
     if [ ${#network_flag_args[@]} -gt 0 ]; then
-      docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
+      docker exec -e LANG=C.UTF-8 -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
     else
-      docker exec -ti "$container_name" cardano-cli "${converted_args[@]}"
+      docker exec -e LANG=C.UTF-8 -ti "$container_name" cardano-cli "${converted_args[@]}"
     fi
   fi
 }

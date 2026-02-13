@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-ADDRESS="addr_test1wz0vzkrzked85ywpsq4ffmx2etvjtnk07lvldrp3d4ht86ckfg639"
+ADDRESS="addr_test1wqyr40te8gk6yj05j7x9vhl2ylwrzf83snkhrvzv5medmds6kuhju"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Get the script's directory and project root
