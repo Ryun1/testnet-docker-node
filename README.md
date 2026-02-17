@@ -198,7 +198,7 @@ We have a script that:
 In a terminal execute:
 
 ```bash
-./scripts/generate-keys.sh
+./scripts/helper/generate-keys.sh
 ```
 
 This will create you a keys directory with some fun things inside, looks like this:
