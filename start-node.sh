@@ -233,7 +233,7 @@ echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
 # Define the list of available node versions
-available_versions=( "10.5.3" "10.5.4" "10.6.2" )
+available_versions=( "10.5.4" "10.6.2" "10.7.0")
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -445,8 +445,8 @@ config_files=(
   "peer-snapshot.json"
 )
 
-# add dijkstra-genesis.json for 10.6.2
-if [ "$node_version" = "10.6.2" ]; then
+# add dijkstra-genesis.json for 10.6.2 and 10.7.0
+if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
