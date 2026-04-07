@@ -442,7 +442,7 @@ config_files=(
   "shelley-genesis.json"
   "alonzo-genesis.json"
   "conway-genesis.json"
-  # "peer-snapshot.json"
+  "peer-snapshot.json"
 )
 
 # add dijkstra-genesis.json for 10.6.2 and 10.7.0
