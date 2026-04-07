@@ -232,8 +232,14 @@ fi
 echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
-# Define the list of available node versions
-available_versions=( "10.7.0" "10.6.2" "10.5.4")
+# ----------------------------------------
+# Define available node versions per network
+# ----------------------------------------
+versions_sanchonet=( "10.7.0" "10.6.2" )
+versions_preview=( "10.6.2" "10.5.4" )
+versions_preprod=( "10.6.2" "10.5.4" )
+versions_mainnet=( "10.6.2" "10.5.4" )
+# ----------------------------------------
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -250,15 +256,6 @@ if [ ! -t 0 ]; then
     echo -e "${RED}Error: Invalid network selection: $network_choice${NC}"
     exit 1
   fi
-  
-  read -r version_choice || true
-  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
-    node_version="${available_versions[$((version_choice - 1))]}"
-    echo -e "${GREEN}Selected node version: $node_version${NC}"
-  else
-    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
-    exit 1
-  fi
 else
   # Interactive mode: use select
   echo -e "${CYAN}Please select a network:${NC}"
@@ -270,7 +267,29 @@ else
       echo -e "${RED}Invalid selection. Please try again.${NC}"
     fi
   done
-  
+fi
+
+# Load the available versions for the selected network
+versions_var="versions_${network}"
+available_versions=()
+eval 'available_versions=("${'"$versions_var"'[@]}")'
+
+if [ ${#available_versions[@]} -eq 0 ]; then
+  echo -e "${RED}Error: No versions configured for network '$network'.${NC}"
+  exit 1
+fi
+
+# Select node version
+if [ ! -t 0 ]; then
+  read -r version_choice || true
+  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
+    node_version="${available_versions[$((version_choice - 1))]}"
+    echo -e "${GREEN}Selected node version: $node_version${NC}"
+  else
+    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
+    exit 1
+  fi
+else
   echo -e "${CYAN}Please select a node version:${NC}"
   select node_version in "${available_versions[@]}"; do
     if [ -n "$node_version" ]; then
