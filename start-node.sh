@@ -97,7 +97,7 @@ list_existing_node_directories() {
 show_running_nodes() {
   local running_nodes
 
-  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+  running_nodes=$(docker ps --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" || true)
 
   if [ -n "$running_nodes" ]; then
     echo -e "${CYAN}Currently running Cardano node(s):${NC}"
@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("mainnet" "preprod" "preview" "sanchonet")
+available_networks=("sanchonet" "preview" "preprod" "mainnet")
 
 
 # If user selected external node configuration
@@ -232,8 +232,14 @@ fi
 echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
-# Define the list of available node versions
-available_versions=( "10.5.3" "10.5.4" "10.6.2" )
+# ----------------------------------------
+# Define available node versions per network
+# ----------------------------------------
+versions_sanchonet=( "10.7.0" "10.6.2" "10.5.4" )
+versions_preview=( "10.6.2" "10.5.4" )
+versions_preprod=( "10.6.2" "10.5.4" )
+versions_mainnet=( "10.6.2" "10.5.4" )
+# ----------------------------------------
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -250,15 +256,6 @@ if [ ! -t 0 ]; then
     echo -e "${RED}Error: Invalid network selection: $network_choice${NC}"
     exit 1
   fi
-  
-  read -r version_choice || true
-  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
-    node_version="${available_versions[$((version_choice - 1))]}"
-    echo -e "${GREEN}Selected node version: $node_version${NC}"
-  else
-    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
-    exit 1
-  fi
 else
   # Interactive mode: use select
   echo -e "${CYAN}Please select a network:${NC}"
@@ -270,7 +267,29 @@ else
       echo -e "${RED}Invalid selection. Please try again.${NC}"
     fi
   done
-  
+fi
+
+# Load the available versions for the selected network
+versions_var="versions_${network}"
+available_versions=()
+eval 'available_versions=("${'"$versions_var"'[@]}")'
+
+if [ ${#available_versions[@]} -eq 0 ]; then
+  echo -e "${RED}Error: No versions configured for network '$network'.${NC}"
+  exit 1
+fi
+
+# Select node version
+if [ ! -t 0 ]; then
+  read -r version_choice || true
+  if [ -n "$version_choice" ] && [ "$version_choice" -ge 1 ] && [ "$version_choice" -le ${#available_versions[@]} ]; then
+    node_version="${available_versions[$((version_choice - 1))]}"
+    echo -e "${GREEN}Selected node version: $node_version${NC}"
+  else
+    echo -e "${RED}Error: Invalid version selection: $version_choice${NC}"
+    exit 1
+  fi
+else
   echo -e "${CYAN}Please select a node version:${NC}"
   select node_version in "${available_versions[@]}"; do
     if [ -n "$node_version" ]; then
@@ -316,8 +335,8 @@ fi
 # Check for running Cardano node containers
 check_running_nodes() {
   local running_nodes
-  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
-  
+  running_nodes=$(docker ps --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" || true)
+
   if [ -n "$running_nodes" ]; then
     echo -e "${YELLOW}Warning: You have the following Cardano node(s) already running:${NC}"
     echo "$running_nodes" | while read -r container; do
@@ -445,8 +464,8 @@ config_files=(
   "peer-snapshot.json"
 )
 
-# add dijkstra-genesis.json for 10.6.2
-if [ "$node_version" = "10.6.2" ]; then
+# add dijkstra-genesis.json for 10.6.2 and 10.7.0
+if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
@@ -459,11 +478,6 @@ fi
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
 for file in "${config_files[@]}"; do
-  # Skip topology.json for sanchonet-chicken (we'll create a custom one)
-  if [ "$network" = "sanchonet-chicken" ] && [ "$file" = "topology.json" ]; then
-    echo -e "${YELLOW}Skipping topology.json for sanchonet-chicken (will use custom topology)${NC}"
-    continue
-  fi
   echo -e "${BLUE}Downloading: $file${NC}"
   curl --silent -O -J -L "${config_base_url}${file}"
 done
@@ -491,11 +505,44 @@ else
   exit 1
 fi
 
+# Verify the container started successfully
+container_name="node-$network_normalized-$node_version-container"
+
+# Give the container a moment to start or fail
+sleep 3
+
+# Check if the container is running
+container_status=$(docker inspect --format '{{.State.Status}}' "$container_name" 2>/dev/null || echo "not_found")
+
+if [ "$container_status" != "running" ]; then
+  echo -e "${RED}Error: Container '$container_name' failed to start (status: $container_status).${NC}"
+
+  # Show the last logs for debugging
+  if [ "$container_status" != "not_found" ]; then
+    echo -e "${YELLOW}Container logs:${NC}"
+    docker logs "$container_name" --tail 20 2>&1 || true
+  fi
+
+  # Stop and remove the failed container
+  echo -e "${YELLOW}Cleaning up failed container...${NC}"
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
+      envsubst < docker-compose.yml | docker compose -f - down 2>/dev/null || true
+  elif command -v docker-compose >/dev/null 2>&1; then
+    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
+      envsubst < docker-compose.yml | docker-compose -f - down 2>/dev/null || true
+  fi
+  docker rm -f "$container_name" 2>/dev/null || true
+
+  echo -e "${RED}Container has been stopped and removed. Please check the logs above for details.${NC}"
+  exit 1
+fi
+
 # Forward the logs to the terminal
-echo -e "${GREEN}Docker container logs:${NC}"
-echo -e "${BLUE}Container name: node-$network_normalized-$node_version-container${NC}"
+echo -e "${GREEN}Docker container started successfully!${NC}"
+echo -e "${BLUE}Container name: $container_name${NC}"
 echo -e "${BLUE}To use this container with scripts, you can specify:${NC}"
-echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"node-$network_normalized-$node_version-container\" ./scripts/query/tip.sh${NC}"
+echo -e "${YELLOW}  CARDANO_CONTAINER_NAME=\"$container_name\" ./scripts/query/tip.sh${NC}"
 echo -e "${BLUE}Or let the script auto-select if it's the only running container.${NC}"
 echo
-docker logs "node-$network_normalized-$node_version-container" --follow
+docker logs "$container_name" --follow

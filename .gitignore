@@ -8,6 +8,7 @@ utilities/
 node-*/
 /scripts/poison
 /scripts/poison/
+/plutus
 
 # Python virtual environment
 venv/

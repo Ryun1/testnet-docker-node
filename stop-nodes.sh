@@ -9,8 +9,8 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No color
 
-# Get all running containers matching the node pattern
-containers=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+# Get all running containers started by this project
+containers=$(docker ps --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" || true)
 
 if [ -z "$containers" ]; then
   echo -e "${YELLOW}No Cardano node containers found running.${NC}"
