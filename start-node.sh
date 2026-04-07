@@ -97,7 +97,7 @@ list_existing_node_directories() {
 show_running_nodes() {
   local running_nodes
 
-  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
+  running_nodes=$(docker ps --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" || true)
 
   if [ -n "$running_nodes" ]; then
     echo -e "${CYAN}Currently running Cardano node(s):${NC}"
@@ -316,8 +316,8 @@ fi
 # Check for running Cardano node containers
 check_running_nodes() {
   local running_nodes
-  running_nodes=$(docker ps --format "{{.Names}}" | grep -E "^node-[^-]+-[^-]+-container$" || true)
-  
+  running_nodes=$(docker ps --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" || true)
+
   if [ -n "$running_nodes" ]; then
     echo -e "${YELLOW}Warning: You have the following Cardano node(s) already running:${NC}"
     echo "$running_nodes" | while read -r container; do
@@ -442,7 +442,7 @@ config_files=(
   "shelley-genesis.json"
   "alonzo-genesis.json"
   "conway-genesis.json"
-  "peer-snapshot.json"
+  # "peer-snapshot.json"
 )
 
 # add dijkstra-genesis.json for 10.6.2 and 10.7.0
@@ -458,6 +458,10 @@ fi
 # Change directory to the config directory and download files
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
+for file in "${config_files[@]}"; do
+  echo -e "${BLUE}Downloading: $file${NC}"
+  curl --silent -O -J -L "${config_base_url}${file}"
+done
 
 # Return to the base directory
 cd "$base_dir" || exit
