@@ -1,22 +1,25 @@
 version: "3.5"
 
 services:
-  cardano-node-${NETWORK}-${NODE_VERSION}:
-    container_name: node-${NETWORK}-${NODE_VERSION}-container
+  ${DIR_PREFIX}-${NETWORK}-${SERVICE_VERSION}:
+    container_name: ${DIR_PREFIX}-${NETWORK}-${SERVICE_VERSION}-container
     network_mode: "host"
     build:
       context: ./
+      dockerfile: ${DOCKERFILE}
       args:
-        CARDANO_NODE_VERSION: ${NODE_VERSION}
+        CARDANO_NODE_VERSION: ${SERVICE_VERSION}
+        DINGO_VERSION: ${SERVICE_VERSION}
+        CARDANO_NETWORK: ${NETWORK}
         CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
         CARDANO_NODE_PORT: ${NODE_PORT}
     labels:
       - "managed-by=testnet-docker-node"
     restart: always
     volumes:
-      - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db
-      - ./node-${NETWORK}-${NODE_VERSION}/config:/config
-      - ./node-${NETWORK}-${NODE_VERSION}/ipc:/ipc
+      - ./${DIR_PREFIX}-${NETWORK}-${SERVICE_VERSION}/db:/data/db
+      - ./${DIR_PREFIX}-${NETWORK}-${SERVICE_VERSION}/config:/config
+      - ./${DIR_PREFIX}-${NETWORK}-${SERVICE_VERSION}/ipc:/ipc
       - ./keys:/keys
       - ./txs:/txs
       - ./dumps:/dumps

@@ -38,8 +38,8 @@ jobs:
       timeout-minutes: 10
       run: |
         set -euo pipefail
-        # connection=1 (Docker), network=3 (preprod), version=1 (latest)
-        printf "1\n3\n1\n" | ./start-node.sh 2>&1 | tee preprod_output.txt &
+        # connection=1 (Docker), impl=1 (cardano-node), network=3 (preprod), version=1 (latest)
+        printf "1\n1\n3\n1\n" | ./start-node.sh 2>&1 | tee preprod_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
@@ -59,15 +59,15 @@ jobs:
       run: |
         set -euo pipefail
         ./stop-nodes.sh || true
-        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" | xargs -r docker rm -f || true
 
     - name: Test Preview node
       shell: bash
       timeout-minutes: 3
       run: |
         set -euo pipefail
-        # connection=1 (Docker), network=2 (preview), version=1 (latest)
-        printf "1\n2\n1\n" | ./start-node.sh 2>&1 | tee preview_output.txt &
+        # connection=1 (Docker), impl=1 (cardano-node), network=2 (preview), version=1 (latest)
+        printf "1\n1\n2\n1\n" | ./start-node.sh 2>&1 | tee preview_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
@@ -87,15 +87,15 @@ jobs:
       run: |
         set -euo pipefail
         ./stop-nodes.sh || true
-        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" | xargs -r docker rm -f || true
 
     - name: Test SanchoNet node
       shell: bash
       timeout-minutes: 3
       run: |
         set -euo pipefail
-        # connection=1 (Docker), network=1 (sanchonet), version=1 (latest)
-        printf "1\n1\n1\n" | ./start-node.sh 2>&1 | tee sancho_output.txt &
+        # connection=1 (Docker), impl=1 (cardano-node), network=1 (sanchonet), version=1 (latest)
+        printf "1\n1\n1\n1\n" | ./start-node.sh 2>&1 | tee sancho_output.txt &
         START_PID=$!
         sleep 30
         if ! kill -0 $START_PID 2>/dev/null; then
@@ -109,13 +109,41 @@ jobs:
           cat sancho_output.txt
         fi
 
+    - name: Cleanup after SanchoNet
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./stop-nodes.sh || true
+        docker ps -a --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" | xargs -r docker rm -f || true
+
+    - name: Test Dingo SanchoNet node
+      shell: bash
+      timeout-minutes: 3
+      run: |
+        set -euo pipefail
+        # connection=1 (Docker), impl=2 (dingo), network=1 (sanchonet), version=1 (latest)
+        printf "1\n2\n1\n1\n" | ./start-node.sh 2>&1 | tee dingo_sancho_output.txt &
+        START_PID=$!
+        sleep 30
+        if ! kill -0 $START_PID 2>/dev/null; then
+          echo "Error: start-node.sh process died unexpectedly"
+          exit 1
+        fi
+        ./stop-nodes.sh
+        wait $START_PID || true
+        if [ -f dingo_sancho_output.txt ]; then
+          echo "=== Dingo SanchoNet Node Output ==="
+          cat dingo_sancho_output.txt
+        fi
+
     - name: Final cleanup
       if: always()
       shell: bash
       run: |
         set -euo pipefail
         ./stop-nodes.sh || true
-        docker ps -a --filter "name=node-" --format "{{.Names}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "label=managed-by=testnet-docker-node" --format "{{.Names}}" | xargs -r docker rm -f || true
         docker system prune -f || true
 
     - name: Upload logs on failure

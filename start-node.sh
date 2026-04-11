@@ -52,38 +52,43 @@ list_existing_node_directories() {
   local node_dirs
   local found_any=false
   
-  # Find all node-* directories
-  node_dirs=$(find "$project_root" -maxdepth 1 -type d -name "node-*" 2>/dev/null | sort || true)
-  
+  # Find all node-* and dingo-* directories
+  node_dirs=$(find "$project_root" -maxdepth 1 -type d \( -name "node-*" -o -name "dingo-*" \) 2>/dev/null | sort || true)
+
   if [ -n "$node_dirs" ]; then
     echo -e "${CYAN}Existing Node directories:${NC}"
     while IFS= read -r dir; do
       [ -z "$dir" ] && continue
       local dirname=$(basename "$dir")
-      # Extract network and version from directory name
-      # Pattern: node-network-version or node-network
-      if [[ "$dirname" =~ ^node-(.+)-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-        # Has version: node-network-version
-        local network="${BASH_REMATCH[1]}"
-        local version="${BASH_REMATCH[2]}"
+      # Extract impl, network and version from directory name
+      # Pattern: {node|dingo}-network-version or {node|dingo}-network
+      if [[ "$dirname" =~ ^(node|dingo)-(.+)-([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+        local impl="${BASH_REMATCH[1]}"
+        local network="${BASH_REMATCH[2]}"
+        local version="${BASH_REMATCH[3]}"
         # Capitalize first letter of network
         network=$(echo "$network" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
-        # Handle special case: sanchonet -> SanchoNet
         if [ "$network" = "Sanchonet" ]; then
           network="SanchoNet"
         fi
-        echo -e "  ${GREEN}-${NC} ${CYAN}$network $version${NC}"
+        local label=""
+        if [ "$impl" = "dingo" ]; then
+          label=" (dingo)"
+        fi
+        echo -e "  ${GREEN}-${NC} ${CYAN}$network $version$label${NC}"
         found_any=true
-      elif [[ "$dirname" =~ ^node-(.+)$ ]]; then
-        # No version: node-network
-        local network="${BASH_REMATCH[1]}"
-        # Capitalize first letter of network
+      elif [[ "$dirname" =~ ^(node|dingo)-(.+)$ ]]; then
+        local impl="${BASH_REMATCH[1]}"
+        local network="${BASH_REMATCH[2]}"
         network=$(echo "$network" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
-        # Handle special case: sanchonet -> SanchoNet
         if [ "$network" = "Sanchonet" ]; then
           network="SanchoNet"
         fi
-        echo -e "  ${GREEN}-${NC} ${CYAN}$network${NC}"
+        local label=""
+        if [ "$impl" = "dingo" ]; then
+          label=" (dingo)"
+        fi
+        echo -e "  ${GREEN}-${NC} ${CYAN}$network$label${NC}"
         found_any=true
       fi
     done <<< "$node_dirs"
@@ -102,9 +107,13 @@ show_running_nodes() {
   if [ -n "$running_nodes" ]; then
     echo -e "${CYAN}Currently running Cardano node(s):${NC}"
     echo "$running_nodes" | while read -r container; do
-      # Extract network and version from container name (node-network-version-container)
-      local network_version=$(echo "$container" | sed 's/node-\(.*\)-container/\1/')
-      echo -e "  ${GREEN}✓${NC} ${CYAN}$container${NC} (${YELLOW}$network_version${NC})"
+      # Extract network and version from container name ({node|dingo}-network-version-container)
+      local network_version=$(echo "$container" | sed -E 's/^(node|dingo)-(.+)-container$/\2/')
+      local impl_label=""
+      if [[ "$container" == dingo-* ]]; then
+        impl_label=" (dingo)"
+      fi
+      echo -e "  ${GREEN}✓${NC} ${CYAN}$container${NC} (${YELLOW}$network_version$impl_label${NC})"
     done
     echo ""
   else
@@ -133,6 +142,9 @@ done
 
 # Define the list of available networks
 available_networks=("sanchonet" "preview" "preprod" "mainnet")
+
+# Narrow networks for Dingo (set after node_impl selection, used before network selection)
+# This variable is checked after node_impl is chosen below
 
 
 # If user selected external node configuration
@@ -232,6 +244,30 @@ fi
 echo
 echo -e "${CYAN}Setting up Docker node...${NC}"
 
+# Select node implementation
+node_impl=""
+node_impl_options=("cardano-node" "dingo")
+if [ ! -t 0 ]; then
+  read -r impl_choice || true
+  if [ -n "$impl_choice" ] && [ "$impl_choice" -ge 1 ] && [ "$impl_choice" -le ${#node_impl_options[@]} ]; then
+    node_impl="${node_impl_options[$((impl_choice - 1))]}"
+    echo -e "${GREEN}Selected node implementation: $node_impl${NC}"
+  else
+    echo -e "${RED}Error: Invalid node implementation selection: $impl_choice${NC}"
+    exit 1
+  fi
+else
+  echo -e "${CYAN}Please select a node implementation:${NC}"
+  select node_impl in "${node_impl_options[@]}"; do
+    if [ -n "$node_impl" ]; then
+      echo -e "${GREEN}You have selected: $node_impl${NC}"
+      break
+    else
+      echo -e "${RED}Invalid selection. Please try again.${NC}"
+    fi
+  done
+fi
+
 # ----------------------------------------
 # Define available node versions per network
 # ----------------------------------------
@@ -239,7 +275,16 @@ versions_sanchonet=( "10.7.0" "10.6.2" "10.5.4" )
 versions_preview=( "10.6.2" "10.5.4" )
 versions_preprod=( "10.6.2" "10.5.4" )
 versions_mainnet=( "10.6.2" "10.5.4" )
+
+# Dingo versions per network
+dingo_versions_sanchonet=( "0.13.0" )
+dingo_networks=( "sanchonet" )
 # ----------------------------------------
+
+# Narrow available networks for Dingo
+if [ "$node_impl" = "dingo" ]; then
+  available_networks=("${dingo_networks[@]}")
+fi
 
 # Initialize variables to avoid unbound variable errors
 network=""
@@ -270,7 +315,11 @@ else
 fi
 
 # Load the available versions for the selected network
-versions_var="versions_${network}"
+if [ "$node_impl" = "dingo" ]; then
+  versions_var="dingo_versions_${network}"
+else
+  versions_var="versions_${network}"
+fi
 available_versions=()
 eval 'available_versions=("${'"$versions_var"'[@]}")'
 
@@ -309,6 +358,9 @@ network_normalized="$network"
 assign_port_for_version() {
   local version=$1
   local base_port=3001
+  if [ "$node_impl" = "dingo" ]; then
+    base_port=4001
+  fi
   
   # Create a simple hash from version string to get consistent port assignment
   # Convert version like "10.5.1" to a number for port offset
@@ -353,7 +405,11 @@ check_running_nodes() {
 
 # Check if the specific node is already running or exists
 check_duplicate_node() {
-  local target_container="node-$network_normalized-$node_version-container"
+  local container_prefix="node"
+  if [ "$node_impl" = "dingo" ]; then
+    container_prefix="dingo"
+  fi
+  local target_container="$container_prefix-$network_normalized-$node_version-container"
   local is_running
   local exists
   
@@ -391,7 +447,11 @@ project_root=$(cd "$script_dir" && pwd)
 
 # Set directory locations
 base_dir="$project_root"
-node_dir="$base_dir/node-$network_normalized-$node_version"
+if [ "$node_impl" = "dingo" ]; then
+  node_dir="$base_dir/dingo-$network_normalized-$node_version"
+else
+  node_dir="$base_dir/node-$network_normalized-$node_version"
+fi
 config_dir="$node_dir/config"
 db_dir="$node_dir/db"
 ipc_dir="$node_dir/ipc"
@@ -453,7 +513,7 @@ create_dir "$dumps_dir"
 # Utilities dir
 create_dir "$utilities_dir"
 
-# List of JSON files to download
+# Download config files
 config_files=(
   "config.json"
   "topology.json"
@@ -465,8 +525,10 @@ config_files=(
 )
 
 # add dijkstra-genesis.json for 10.6.2 and 10.7.0
-if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
-  config_files+=("dijkstra-genesis.json")
+if [ "$node_impl" != "dingo" ]; then
+  if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
+    config_files+=("dijkstra-genesis.json")
+  fi
 fi
 
 # add checkpoints.json for preview and mainnet (not available for sanchonet or preprod)
@@ -474,7 +536,6 @@ if [ "$network" = "preview" ] || [ "$network" = "mainnet" ]; then
   config_files+=("checkpoints.json")
 fi
 
-# Change directory to the config directory and download files
 echo -e "${CYAN}Downloading configuration files...${NC}"
 cd "$config_dir" || exit
 for file in "${config_files[@]}"; do
@@ -487,13 +548,22 @@ cd "$base_dir" || exit
 
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network_normalized
-export NODE_VERSION=$node_version
 export NODE_PORT=$NODE_PORT
+export SERVICE_VERSION=$node_version
 
-# Get the network magic from the shelley-genesis.json file and pass it into the container
+# Get the network magic from the shelley-genesis.json file
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 
-# Substitute the variables in the docker-compose.yml file and start the Docker container
+# Set implementation-specific env vars
+if [ "$node_impl" = "dingo" ]; then
+  export DIR_PREFIX="dingo"
+  export DOCKERFILE="Dockerfile.dingo"
+else
+  export DIR_PREFIX="node"
+  export DOCKERFILE="Dockerfile"
+fi
+
+# Substitute the variables in docker-compose.yml and start the Docker container
 echo -e "${CYAN}Starting the Docker container...${NC}"
 # Use docker compose (plugin) if available, fallback to docker-compose (standalone)
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -506,7 +576,11 @@ else
 fi
 
 # Verify the container started successfully
-container_name="node-$network_normalized-$node_version-container"
+if [ "$node_impl" = "dingo" ]; then
+  container_name="dingo-$network_normalized-$node_version-container"
+else
+  container_name="node-$network_normalized-$node_version-container"
+fi
 
 # Give the container a moment to start or fail
 sleep 3
@@ -526,11 +600,9 @@ if [ "$container_status" != "running" ]; then
   # Stop and remove the failed container
   echo -e "${YELLOW}Cleaning up failed container...${NC}"
   if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
-      envsubst < docker-compose.yml | docker compose -f - down 2>/dev/null || true
+    envsubst < docker-compose.yml | docker compose -f - down 2>/dev/null || true
   elif command -v docker-compose >/dev/null 2>&1; then
-    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
-      envsubst < docker-compose.yml | docker-compose -f - down 2>/dev/null || true
+    envsubst < docker-compose.yml | docker-compose -f - down 2>/dev/null || true
   fi
   docker rm -f "$container_name" 2>/dev/null || true
 
