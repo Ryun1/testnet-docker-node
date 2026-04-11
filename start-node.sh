@@ -469,13 +469,11 @@ helper_dir="$tx_dir/helper"
 dumps_dir="$base_dir/dumps/$network_normalized"
 utilities_dir="$base_dir/utilities"
 
-# Base URL for node config files (not needed for Dingo)
-if [ "$node_impl" != "dingo" ]; then
-  if [ "$network" = "sanchonet" ]; then
-    config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
-  else
-    config_base_url="https://book.play.dev.cardano.org/environments/$network/"
-  fi
+# Base URL for node config files
+if [ "$network" = "sanchonet" ]; then
+  config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
+else
+  config_base_url="https://book.play.dev.cardano.org/environments/$network/"
 fi
 
 # Function to create a directory if it doesn't exist
@@ -515,60 +513,54 @@ create_dir "$dumps_dir"
 # Utilities dir
 create_dir "$utilities_dir"
 
-# Download config files (cardano-node only; Dingo auto-configures)
-if [ "$node_impl" != "dingo" ]; then
-  config_files=(
-    "config.json"
-    "topology.json"
-    "byron-genesis.json"
-    "shelley-genesis.json"
-    "alonzo-genesis.json"
-    "conway-genesis.json"
-    "peer-snapshot.json"
-  )
+# Download config files
+config_files=(
+  "config.json"
+  "topology.json"
+  "byron-genesis.json"
+  "shelley-genesis.json"
+  "alonzo-genesis.json"
+  "conway-genesis.json"
+  "peer-snapshot.json"
+)
 
-  # add dijkstra-genesis.json for 10.6.2 and 10.7.0
+# add dijkstra-genesis.json for 10.6.2 and 10.7.0
+if [ "$node_impl" != "dingo" ]; then
   if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
     config_files+=("dijkstra-genesis.json")
   fi
-
-  # add checkpoints.json for preview and mainnet (not available for sanchonet or preprod)
-  if [ "$network" = "preview" ] || [ "$network" = "mainnet" ]; then
-    config_files+=("checkpoints.json")
-  fi
-
-  echo -e "${CYAN}Downloading configuration files...${NC}"
-  cd "$config_dir" || exit
-  for file in "${config_files[@]}"; do
-    echo -e "${BLUE}Downloading: $file${NC}"
-    curl --silent -O -J -L "${config_base_url}${file}"
-  done
-
-  # Return to the base directory
-  cd "$base_dir" || exit
 fi
+
+# add checkpoints.json for preview and mainnet (not available for sanchonet or preprod)
+if [ "$network" = "preview" ] || [ "$network" = "mainnet" ]; then
+  config_files+=("checkpoints.json")
+fi
+
+echo -e "${CYAN}Downloading configuration files...${NC}"
+cd "$config_dir" || exit
+for file in "${config_files[@]}"; do
+  echo -e "${BLUE}Downloading: $file${NC}"
+  curl --silent -O -J -L "${config_base_url}${file}"
+done
+
+# Return to the base directory
+cd "$base_dir" || exit
 
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network_normalized
 export NODE_PORT=$NODE_PORT
 export SERVICE_VERSION=$node_version
 
+# Get the network magic from the shelley-genesis.json file
+export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
+
 # Set implementation-specific env vars
 if [ "$node_impl" = "dingo" ]; then
   export DIR_PREFIX="dingo"
   export DOCKERFILE="Dockerfile.dingo"
-  # Derive network ID from network name (no shelley-genesis.json for Dingo)
-  case "$network" in
-    mainnet)   export NETWORK_ID="764824073" ;;
-    preprod)   export NETWORK_ID="1" ;;
-    preview)   export NETWORK_ID="2" ;;
-    sanchonet) export NETWORK_ID="4" ;;
-  esac
 else
   export DIR_PREFIX="node"
   export DOCKERFILE="Dockerfile"
-  # Get the network magic from the shelley-genesis.json file
-  export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 fi
 
 # Substitute the variables in docker-compose.yml and start the Docker container

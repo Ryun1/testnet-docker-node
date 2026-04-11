@@ -54,6 +54,26 @@ jobs:
         docker images | grep testnet-docker-image
         echo "Docker image built successfully"
 
+    - name: Build Dingo Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.dingo
+        tags: |
+          testnet-dingo-image:${{ steps.meta.outputs.tag }}
+          testnet-dingo-image:${{ steps.meta.outputs.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        push: false
+        load: true
+
+    - name: Test Dingo Docker image
+      shell: bash
+      run: |
+        set -euo pipefail
+        docker images | grep testnet-dingo-image
+        echo "Dingo Docker image built successfully"
+
     - name: Cleanup
       if: always()
       shell: bash
