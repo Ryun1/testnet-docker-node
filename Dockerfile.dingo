@@ -1,0 +1,14 @@
+# Define build-time variables for FROM statement
+ARG DINGO_VERSION=0.13.0
+
+FROM ghcr.io/blinklabs-io/dingo:${DINGO_VERSION}
+
+# Redefine build arguments for use in this stage
+ARG CARDANO_NETWORK=preview
+ARG CARDANO_NODE_PORT=4001
+ARG CARDANO_NODE_NETWORK_ID
+
+# Set environment variables
+ENV CARDANO_NETWORK=${CARDANO_NETWORK}
+ENV CARDANO_NODE_NETWORK_ID=${CARDANO_NODE_NETWORK_ID}
+ENV CARDANO_NODE_PORT=${CARDANO_NODE_PORT}

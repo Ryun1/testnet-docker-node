@@ -32,6 +32,41 @@ convert_to_container_path() {
   echo "$path"
 }
 
+# Default cardano-node image used to run cardano-cli for Dingo containers
+CARDANO_CLI_IMAGE="${CARDANO_CLI_IMAGE:-ghcr.io/intersectmbo/cardano-node:10.7.0}"
+
+# Check if a container is a Dingo container
+is_dingo_container() {
+  [[ "$1" == dingo-* ]]
+}
+
+# Get the host IPC volume path for a container
+get_ipc_volume_path() {
+  docker inspect "$1" --format '{{range .Mounts}}{{if eq .Destination "/ipc"}}{{.Source}}{{end}}{{end}}' 2>/dev/null
+}
+
+# Get the CARDANO_NODE_NETWORK_ID from a Dingo container
+get_dingo_network_id() {
+  docker inspect "$1" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep '^CARDANO_NODE_NETWORK_ID=' | cut -d= -f2
+}
+
+# Run cardano-cli for a Dingo container using the cardano-node image with shared socket
+dingo_cardano_cli() {
+  local ipc_path="$1"
+  local network_id="$2"
+  shift 2
+  docker run --rm \
+    -v "$ipc_path:/ipc" \
+    -v "$base_dir/keys:/keys" \
+    -v "$base_dir/txs:/txs" \
+    -v "$base_dir/dumps:/dumps" \
+    -e CARDANO_NODE_SOCKET_PATH=/ipc/dingo.socket \
+    -e CARDANO_NODE_NETWORK_ID="$network_id" \
+    --entrypoint="" \
+    "$CARDANO_CLI_IMAGE" \
+    cardano-cli "$@"
+}
+
 # Display version info for a given container name
 display_version_info() {
   local container_name="$1"
@@ -39,21 +74,28 @@ display_version_info() {
     return
   fi
   
-  # Extract network and version from container name (pattern: node-{network}-{version}-container)
+  # Extract impl, network and version from container name (pattern: {node|dingo}-{network}-{version}-container)
+  local impl=""
   local network=""
   local node_version=""
-  if [[ "$container_name" =~ ^node-([^-]+)-([^-]+)-container$ ]]; then
-    network="${BASH_REMATCH[1]}"
-    node_version="${BASH_REMATCH[2]}"
+  if [[ "$container_name" =~ ^(node|dingo)-([^-]+)-([^-]+)-container$ ]]; then
+    impl="${BASH_REMATCH[1]}"
+    network="${BASH_REMATCH[2]}"
+    node_version="${BASH_REMATCH[3]}"
   fi
-  
-  # Get cardano-cli version from container
-  local cli_version=$(docker exec "$container_name" cardano-cli version 2>/dev/null | head -n 1 || echo "unknown")
+
+  # Get cardano-cli version from container (Dingo containers use docker run with cardano-node image)
+  local cli_version=""
+  if is_dingo_container "$container_name"; then
+    cli_version=$(docker run --rm --entrypoint="" "$CARDANO_CLI_IMAGE" cardano-cli version 2>/dev/null | head -n 1 || echo "unknown")
+  else
+    cli_version=$(docker exec "$container_name" cardano-cli version 2>/dev/null | head -n 1 || echo "unknown")
+  fi
   # Clean up version string (remove "cardano-cli" prefix if present)
   cli_version=$(echo "$cli_version" | sed 's/^cardano-cli //')
-  
+
   if [ -n "$network" ] && [ -n "$node_version" ]; then
-    echo -e "${CYAN}Info:${NC} ${YELLOW}node v$node_version${NC} | ${GREEN}$network${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
+    echo -e "${CYAN}Info:${NC} ${YELLOW}$impl v$node_version${NC} | ${GREEN}$network${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
   else
     echo -e "${CYAN}Info:${NC} ${YELLOW}Docker container: $container_name${NC} | ${BLUE}cardano-cli $cli_version${NC}" >&2
   fi
@@ -85,9 +127,9 @@ check_cardano_cli_version() {
       container_name="$CARDANO_CONTAINER_NAME_OVERRIDE"
     else
       # Only try to get container name if there's exactly one running container (non-interactive)
-      local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+      local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(node|dingo)-' | wc -l | tr -d ' ')
       if [ "$running_count" -eq 1 ]; then
-        container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | head -n 1)
+        container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(node|dingo)-' | head -n 1)
       fi
     fi
     
@@ -195,7 +237,7 @@ cardano_cli() {
     
     # Display version info for the selected container
     # Only show if multiple containers are running (selection happened) to avoid duplicate when single container
-    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^(node|dingo)-' | wc -l | tr -d ' ')
     if [ "$running_count" -gt 1 ]; then
       display_version_info "$container_name"
     fi
@@ -216,10 +258,25 @@ cardano_cli() {
       prev_arg="$arg"
     done
     
-    if [ ${#network_flag_args[@]} -gt 0 ]; then
-      docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
+    if is_dingo_container "$container_name"; then
+      # Dingo containers: run cardano-cli via docker run with shared socket
+      local ipc_path=$(get_ipc_volume_path "$container_name")
+      if [ -z "$ipc_path" ]; then
+        echo "Error: Could not determine IPC volume path for container '$container_name'." >&2
+        exit 1
+      fi
+      local dingo_network_id=$(get_dingo_network_id "$container_name")
+      if [ ${#network_flag_args[@]} -gt 0 ]; then
+        dingo_cardano_cli "$ipc_path" "$dingo_network_id" "${network_flag_args[@]}" "${converted_args[@]}"
+      else
+        dingo_cardano_cli "$ipc_path" "$dingo_network_id" "${converted_args[@]}"
+      fi
     else
-      docker exec -ti "$container_name" cardano-cli "${converted_args[@]}"
+      if [ ${#network_flag_args[@]} -gt 0 ]; then
+        docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
+      else
+        docker exec -ti "$container_name" cardano-cli "${converted_args[@]}"
+      fi
     fi
   fi
 }

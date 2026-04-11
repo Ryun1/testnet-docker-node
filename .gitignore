@@ -6,6 +6,7 @@ node/
 secrets/
 utilities/
 node-*/
+dingo-*/
 /scripts/poison
 /scripts/poison/
 /plutus
