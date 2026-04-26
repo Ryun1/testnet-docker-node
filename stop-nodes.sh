@@ -54,12 +54,46 @@ else
   fi
 fi
 
-# Stop and remove selected containers
+# Get the project root directory
+script_dir=$(cd "$(dirname "$0")" && pwd)
+
+# Stop and remove selected containers, and clean up host-side socat bridges
 for container in "${stop_list[@]}"; do
   echo -e "${YELLOW}Stopping: $container${NC}"
   docker stop "$container" 2>/dev/null || true
   docker rm "$container" 2>/dev/null || true
   echo -e "${GREEN}Stopped: $container${NC}"
+
+  # If this is a node container (not a socat sidecar), clean up the host-side socat bridge
+  if [[ "$container" == node-*-container ]]; then
+    # Derive node directory from container name: node-{network}-{version}-container -> node-{network}-{version}
+    node_dir_name=$(echo "$container" | sed 's/-container$//')
+    node_dir="$script_dir/$node_dir_name"
+
+    # Kill host-side socat process if running
+    if [ -f "$node_dir/socat.pid" ]; then
+      socat_pid=$(cat "$node_dir/socat.pid" 2>/dev/null || true)
+      if [ -n "$socat_pid" ] && kill -0 "$socat_pid" 2>/dev/null; then
+        echo -e "${YELLOW}Stopping host-side socat bridge (PID $socat_pid)${NC}"
+        kill "$socat_pid" 2>/dev/null || true
+      fi
+      rm -f "$node_dir/socat.pid"
+    fi
+
+    # Clean up the host socket file
+    rm -f "$node_dir/node.socket"
+
+    # Also stop the socat sidecar container if it wasn't already in the stop list
+    socat_container="${node_dir_name}-socat"
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${socat_container}$"; then
+      if ! printf '%s\n' "${stop_list[@]}" | grep -q "^${socat_container}$"; then
+        echo -e "${YELLOW}Stopping socat sidecar: $socat_container${NC}"
+        docker stop "$socat_container" 2>/dev/null || true
+        docker rm "$socat_container" 2>/dev/null || true
+        echo -e "${GREEN}Stopped: $socat_container${NC}"
+      fi
+    fi
+  fi
 done
 
 echo
