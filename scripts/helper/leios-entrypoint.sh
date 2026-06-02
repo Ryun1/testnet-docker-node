@@ -1,30 +1,95 @@
 #!/bin/bash
 #
-# Container entrypoint for the leiosnet node (baked into Dockerfile.leios-image).
+# Container entrypoint + crash supervisor for the leiosnet node.
 #
-# Refreshes the side-loaded leios.db BEFORE the node opens it, then execs the
-# node. Because this runs on every container start — including Docker's
-# `restart: always` auto-restarts after a crash — the
-#   "LeiosCert / Announced EB ... not available"
-# crash self-heals (fresh db on restart) instead of crash-looping on a stale db.
+# Runs the node (passed as "$@") and watches for the upstream LeiosCert crash:
+#   "cardano-node: ExceptionInLinkedThread ... Announced EB ... not available?LeiosCert"
+# When it happens, ESCALATES recovery (rotate relays -> wipe & rebuild from
+# chain; see recover_leios_db in leios-db.sh) and re-runs the node, repeating
+# until the node stays up. Because the crash is handled in-process, the node
+# self-heals without relying on the compose `restart: always` policy, which
+# remains an outer safety net for other (non-LeiosCert) failures.
 #
-# Re-downloads are throttled via LEIOS_DB_REFRESH_MIN_INTERVAL (seconds, default
-# 600) so a rapid crash loop doesn't re-pull ~190MB on every restart attempt.
+# Honest caveat: if no relay AND no peer has the missing endorsement block, this
+# keeps cycling rather than fixing it — that's the upstream bug, not this loop.
+#
+# Design notes:
+#  - Only stderr is captured (the LeiosCert message is printed there); the node's
+#    voluminous JSON stdout logs pass straight through, so the capture file stays
+#    tiny even on long healthy runs.
+#  - SIGTERM/SIGINT are forwarded to the node so `docker stop` shuts SQLite down
+#    cleanly and `leios.db` is not corrupted mid-write.
 
-set -euo pipefail
+set -uo pipefail
 
 leios_dir="${LEIOS_DB_DIR:-/leios}"
-interval="${LEIOS_DB_REFRESH_MIN_INTERVAL:-600}"
+backoff="${LEIOS_RECOVERY_BACKOFF_SECONDS:-10}"
 
 # shellcheck source=scripts/helper/leios-db.sh
-source /usr/local/bin/leios-db.sh
+source "${LEIOS_DB_LIB:-/usr/local/bin/leios-db.sh}"
 
-if leios_db_recently_refreshed "$leios_dir" "$interval"; then
-  echo "leios.db was refresh-attempted within the last ${interval}s; skipping re-download."
-else
-  echo "Refreshing leios.db before starting the node..."
-  download_leios_db "$leios_dir" || true
-fi
+child=""
+terminating=0
+on_term() {
+  terminating=1
+  [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
+}
+trap on_term TERM INT
 
-# Hand off to the node command from docker-compose (passed as arguments).
-exec "$@"
+err_file="$(mktemp)"
+trap 'rm -f "$err_file"' EXIT
+
+# Wait for $child to actually exit, surviving waits interrupted by a trapped
+# signal. Sets `rc` to the child's real exit status.
+wait_for_child() {
+  wait "$child"; rc=$?
+  while kill -0 "$child" 2>/dev/null; do
+    wait "$child"; rc=$?
+  done
+}
+
+# Sleep that can be interrupted by SIGTERM/SIGINT (so a docker stop during the
+# recovery backoff exits promptly instead of hanging).
+interruptible_sleep() {
+  sleep "$1" & child=$!
+  wait "$child" 2>/dev/null || true
+  child=""
+}
+
+attempt=0
+while true; do
+  : > "$err_file"
+
+  # Run the node; capture stderr (where LeiosCert is printed) while still
+  # echoing it to the container's stderr. stdout passes through untouched.
+  "$@" 2> >(tee -a "$err_file" >&2) &
+  child=$!
+  wait_for_child
+  child=""
+
+  # Clean shutdown requested (docker stop) — propagate the node's exit code.
+  if [ "$terminating" -eq 1 ]; then
+    exit "$rc"
+  fi
+
+  # Node exited on its own.
+  if [ "$rc" -eq 0 ]; then
+    echo "Node exited cleanly (rc=0); supervisor stopping."
+    exit 0
+  fi
+
+  if grep -qE "LeiosCert|Announced EB" "$err_file"; then
+    attempt=$(( attempt + 1 ))
+    echo -e "${YELLOW}Detected LeiosCert crash (rc=${rc}); recovery attempt ${attempt} in ${backoff}s...${NC}"
+    interruptible_sleep "$backoff"
+    [ "$terminating" -eq 1 ] && exit "$rc"
+    recover_leios_db "$leios_dir" "$attempt"
+    continue
+  fi
+
+  # Some other crash — don't mask it in a tight loop; let `restart: always`
+  # (with Docker's own backoff) restart the container.
+  echo -e "${YELLOW}Node crashed (rc=${rc}) without a LeiosCert signature; deferring to the restart policy.${NC}"
+  interruptible_sleep 3
+  exit "$rc"
+done

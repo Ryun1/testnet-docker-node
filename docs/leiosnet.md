@@ -42,10 +42,11 @@ The general flow is the same as any Cardano node:
 3. **Side-load the `leios.db` snapshot** — download the SQLite database (and its `-wal`
    write-ahead log) from a leiosnet relay into the node's working directory, mounted
    read-write. If no relay is reachable this is non-fatal: the node simply starts with an
-   empty Leios database and builds it from the chain. In this repo's setup the container
-   entrypoint re-runs this side-load on **every** start (throttled), so a crashed node
-   self-heals — see [Recovering from the `LeiosCert` crash](#recovering-from-the-leioscert-crash)
-   and its [trade-offs](#leiosdb-auto-refresh-trade-offs).
+   empty Leios database and builds it from the chain. In this repo's setup `start-node.sh`
+   does this initial side-load, and a container supervisor re-side-loads **only when the
+   node actually crashes** — see
+   [Recovering from the `LeiosCert` crash](#recovering-from-the-leioscert-crash) and its
+   [trade-offs](#leiosdb-recovery-trade-offs).
 4. Run the node against the leiosnet config, e.g.:
 
 ```bash
@@ -68,22 +69,38 @@ current chain but it's not available?LeiosCert
 ```
 
 This means the local `leios.db` is missing an endorsement block (EB) that the chain
-references. The fix is to re-side-load `leios.db` from a relay that has the block.
+references. The fix is to obtain a `leios.db` that has the block (from a relay, or by
+rebuilding from the chain).
 
-**This now self-heals.** The container's entrypoint re-side-loads `leios.db` on *every*
-start, so the `restart: always` policy turns a crash into an automatic recovery: crash →
-Docker restarts the container → entrypoint downloads a fresh `leios.db` → node resumes.
-Re-downloads are throttled (`LEIOS_DB_REFRESH_MIN_INTERVAL`, default `600` seconds) so a
-rapid crash loop doesn't re-pull the ~190 MB snapshot on every restart.
+**This self-heals.** The container's entrypoint (`scripts/helper/leios-entrypoint.sh`) is a
+**supervisor**: it runs the node, watches its stderr, and when it sees the `LeiosCert`
+crash it **escalates** recovery and re-runs the node — repeating until the node stays up:
 
-To force a refresh manually (e.g. recover immediately without waiting for a restart), run:
+1. refresh `leios.db` from relay 1, then
+2. relay 2, then
+3. relay 3, then
+4. **wipe** `leios.db` and let the node rebuild Leios state from the chain it already trusts,
+
+then it cycles back to relay 1 (which may have caught up), and so on. Recovery is tied to the
+*actual* crash — a healthy node is never re-downloaded, and there is no throttle window to get
+stuck in. `restart: always` remains only as an outer safety net for non-`LeiosCert` failures.
+A `docker stop` is clean: the supervisor forwards `SIGTERM` to the node so SQLite closes
+without corrupting `leios.db`.
+
+You normally don't need to do anything. To force recovery by hand (e.g. immediately, or to
+re-side-load before starting), run:
 
 ```bash
 ./scripts/helper/refresh-leios-db.sh
 ```
 
-It stops the leios container, re-downloads `leios.db` (+ `-wal`) using the same relay
-list as the entrypoint and `start-node.sh`, and brings the node back up.
+It stops the leios container, re-downloads `leios.db` (+ `-wal`) from the relays, and brings
+the node back up.
+
+> **The honest caveat:** escalation maximizes the chance of obtaining the missing EB and never
+> gets permanently stuck, but it cannot conjure an EB that *no* relay and *no* peer has — that
+> is the upstream bug. If every source is behind the block your chain references, the
+> supervisor will keep cycling until one of them catches up.
 
 ## Interacting with the node
 
@@ -143,33 +160,32 @@ release.
 For the full command-by-command support matrix and root-cause details, see
 [**cardano-cli ⇄ Dijkstra / Leios compatibility**](./dijkstra-cli-compatibility.md).
 
-### `leios.db` auto-refresh trade-offs
+### `leios.db` recovery trade-offs
 
-The container entrypoint re-side-loads `leios.db` on every start (see
-[Recovering from the `LeiosCert` crash](#recovering-from-the-leioscert-crash)). This is what
-makes the crash self-heal, but it has consequences to be aware of:
+The container supervisor recovers `leios.db` only when the node crashes, escalating relays →
+wipe (see [Recovering from the `LeiosCert` crash](#recovering-from-the-leioscert-crash)).
+Things to be aware of:
 
 - **Workaround, not a fix.** The underlying `LeiosCert` ("announced EB … not available")
-  fault is an upstream Leios node bug. The auto-refresh masks it by swapping in a relay
-  snapshot that contains the missing block; it does not fix the node itself.
-- **Local Leios state is discarded on refresh.** Each refresh replaces the node's local
-  `leios.db` with the relay's snapshot, so any Leios state the node built since the last
-  side-load is thrown away and the node adopts the relay's view. Fine for a passive
-  sync/relay node; **be cautious on a block-producing node** — wholesale replacement of
-  `leios.db` is not something you want happening unexamined on a BP. Consider a large
-  `LEIOS_DB_REFRESH_MIN_INTERVAL`, or removing the entrypoint refresh, for a producer.
-- **Healthy restarts also re-download.** A daemon restart, host reboot, or manual
-  `docker restart` more than `LEIOS_DB_REFRESH_MIN_INTERVAL` (default `600s`) after the last
-  refresh re-pulls the full ~190 MB snapshot, even though nothing was wrong. Raise the
-  interval if that bandwidth/latency matters.
-- **Throttle is attempt-based, not success-based.** The `.leios-db-refreshed` marker (in the
-  `leios/` dir, next to `leios.db`) is stamped on every attempt, including *failed* ones, so
-  a crash loop with unreachable relays doesn't retry every restart. The flip side: after a
-  failed refresh, a restart inside the interval **won't** retry — run
-  `./scripts/helper/refresh-leios-db.sh` (or lower the interval) to retry sooner.
-- **Relay dependency.** If no relay is reachable at start, the refresh is non-fatal but the
-  node comes up with an *empty* `leios.db` and rebuilds from chain — slower, and it may hit
-  the same `LeiosCert` crash again until it can obtain the missing EB.
-- **Requires `curl` + `ca-certificates` in the image.** The entrypoint downloads over HTTPS,
+  fault is an upstream Leios node bug. Recovery masks it by obtaining a `leios.db` that has
+  the missing block; it does not fix the node itself.
+- **Recovery replaces local Leios state.** Each relay refresh swaps in the relay's snapshot,
+  and the wipe step discards `leios.db` entirely — so any Leios state the node built is lost
+  and rebuilt. This only happens on a crash, but **be cautious on a block-producing node**:
+  wholesale replacement of `leios.db` is not something you want happening unexamined on a BP.
+  Tune `LEIOS_RECOVERY_BACKOFF_SECONDS`, or run a producer without the supervisor's wipe step,
+  if that matters.
+- **Recovery is not instant.** Each attempt pulls a fresh snapshot (~190 MB) or triggers a
+  chain rebuild, and on emulated `amd64` this is slow. The node is down for the duration of
+  each attempt; the supervisor waits `LEIOS_RECOVERY_BACKOFF_SECONDS` (default `10`) between
+  attempts to avoid hammering the relays.
+- **It can keep cycling.** If no relay and no peer has the EB your chain references, escalation
+  rotates relay → relay → relay → wipe → relay … indefinitely rather than fixing it — it
+  never gets *stuck*, but it can't recover until some source has the block. Watch
+  `docker logs` to see the attempt counter climbing.
+- **Non-`LeiosCert` crashes are not auto-recovered.** Any other non-zero exit is left to the
+  compose `restart: always` policy (the supervisor does not loop on it), so unrelated failures
+  aren't masked behind a tight retry loop.
+- **Requires `curl` + `ca-certificates` in the image.** Relay refreshes download over HTTPS,
   so the patched image installs these (see `Dockerfile.leios-image`). The base Leios image
   does not ship them.

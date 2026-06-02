@@ -26,6 +26,9 @@ services:
     labels:
       - "managed-by=testnet-docker-node"
     restart: always
+    # Run tini as PID 1 so the bash supervisor (leios-entrypoint.sh) gets clean
+    # signal delivery and grandchild processes are reaped properly.
+    init: true
     # The helper scripts run `docker exec <container> cardano-cli query ...`
     # without passing --testnet-magic; cardano-cli reads the network from this
     # env var instead. NETWORK_ID is exported by start-node.sh (the leiosnet

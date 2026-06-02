@@ -48,10 +48,11 @@ ENV CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
 RUN mkdir -p /leios
 WORKDIR /leios
 
-# Refresh the side-loaded leios.db on every container start (including Docker's
-# restart:always auto-restarts) so the LeiosCert crash self-heals instead of
-# crash-looping on a stale db. The entrypoint sources the same download helper
-# that start-node.sh / refresh-leios-db.sh use, then execs the node command.
+# Crash supervisor: leios-entrypoint.sh runs the node and, on a LeiosCert crash,
+# escalates leios.db recovery (rotate relays -> wipe & rebuild from chain) and
+# re-runs it until it stays up, so the crash self-heals instead of crash-looping
+# on a stale db. It sources the same download helper that start-node.sh /
+# refresh-leios-db.sh use.
 COPY scripts/helper/leios-db.sh /usr/local/bin/leios-db.sh
 COPY scripts/helper/leios-entrypoint.sh /usr/local/bin/leios-entrypoint.sh
 RUN chmod +x /usr/local/bin/leios-db.sh /usr/local/bin/leios-entrypoint.sh
