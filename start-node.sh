@@ -465,7 +465,7 @@ config_files=(
 )
 
 # add dijkstra-genesis.json for 10.6.2 and 10.7.0
-if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
+if [ "$node_version" = "11.0.1" ] ||[ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
