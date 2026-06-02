@@ -235,9 +235,9 @@ echo -e "${CYAN}Setting up Docker node...${NC}"
 # ----------------------------------------
 # Define available node versions per network
 # ----------------------------------------
-versions_sanchonet=( "10.7.0" "10.6.2" "10.5.4" )
-versions_preview=( "10.6.2" "10.5.4" )
-versions_preprod=( "10.6.2" "10.5.4" )
+versions_sanchonet=( "11.0.1" )
+versions_preview=( "11.0.1" )
+versions_preprod=( "11.0.1" "10.6.2" "10.5.4" )
 versions_mainnet=( "10.6.2" "10.5.4" )
 # ----------------------------------------
 
