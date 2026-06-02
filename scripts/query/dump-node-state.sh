@@ -12,7 +12,7 @@ dumps_dir="$project_root/dumps"
 source "$script_dir/../helper/cardano-cli-wrapper.sh"
 
 # Get the network name
-if [ -n "$CARDANO_NETWORK" ]; then
+if [ -n "${CARDANO_NETWORK:-}" ]; then
   network="$CARDANO_NETWORK"
 elif [ "$NODE_MODE" = "docker" ]; then
   # For Docker mode, extract from container name

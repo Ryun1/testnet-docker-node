@@ -1,0 +1,79 @@
+version: "3.5"
+
+# Compose file for the prebuilt Leios cardano-node image.
+#
+# Instead of building locally (see docker-compose.yml), this pulls the image
+# published from the ouroboros-leios repo's antithesis/Dockerfile.cardano-node:
+#   https://github.com/input-output-hk/ouroboros-leios/blob/main/antithesis/Dockerfile.cardano-node
+#
+# The image's default CMD boots its own baked-in antithesis devnet. We override
+# the command so the node instead syncs the public leiosnet using the config
+# downloaded by start-node.sh into the mounted /config directory.
+services:
+  cardano-node-${NETWORK}-${NODE_VERSION}:
+    container_name: node-${NETWORK}-${NODE_VERSION}-container
+    network_mode: "host"
+    # Build a thin layer over the published Leios image (Dockerfile.leios-image)
+    # that adds the liburing2 lib the published image is missing. The heavy
+    # cardano-node binary still comes from the pulled base image, not a rebuild.
+    image: cardano-node-leios-patched:main
+    build:
+      context: ./
+      dockerfile: Dockerfile.leios-image
+    # The Leios base image is only published for linux/amd64. On Apple Silicon /
+    # other arm64 hosts this runs under emulation (Docker Desktop / Rosetta).
+    platform: linux/amd64
+    labels:
+      - "managed-by=testnet-docker-node"
+    restart: always
+    # The helper scripts run `docker exec <container> cardano-cli query ...`
+    # without passing --testnet-magic; cardano-cli reads the network from this
+    # env var instead. NETWORK_ID is exported by start-node.sh (the leiosnet
+    # network magic, e.g. 164). The repo's normal Dockerfile bakes this in via a
+    # build arg, but here it's a runtime value so we inject it on the container.
+    environment:
+      CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
+    # Override the image's default entrypoint/command (an antithesis devnet
+    # bootstrap script) to run the node against the mounted leiosnet config.
+    entrypoint: []
+    command:
+      - /usr/local/bin/cardano-node
+      - run
+      - +RTS
+      - -N
+      - -A16m
+      - -qg
+      - -qb
+      - -RTS
+      - --topology
+      - /config/topology.json
+      - --database-path
+      - /data/db
+      - --socket-path
+      - /ipc/node.socket
+      - --host-addr
+      - 0.0.0.0
+      - --port
+      - "${NODE_PORT}"
+      - --config
+      - /config/config.json
+    volumes:
+      - ./node-${NETWORK}-${NODE_VERSION}/db:/data/db
+      - ./node-${NETWORK}-${NODE_VERSION}/config:/config
+      - ./node-${NETWORK}-${NODE_VERSION}/ipc:/ipc
+      # Side-loaded leios.db lives here; WORKDIR is /leios so the node opens it.
+      # Mounted read-write so the node can update the database and its WAL files.
+      - ./node-${NETWORK}-${NODE_VERSION}/leios:/leios:rw
+      - ./keys:/keys
+      - ./txs:/txs
+      - ./dumps:/dumps
+      - ./utilities:/utilities
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+volumes:
+  node-db:
+  node-ipc:

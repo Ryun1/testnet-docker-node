@@ -1,0 +1,47 @@
+# Thin layer over the published Leios cardano-node image.
+#
+# Base image (pulled, not rebuilt) is published from the ouroboros-leios repo's
+# antithesis/Dockerfile.cardano-node:
+#   https://github.com/input-output-hk/ouroboros-leios/pkgs/container/ouroboros-leios%2Fcardano-node-leios
+#
+# The published image only ships cardano-node, and is missing pieces needed to
+# run as a drop-in node for this repo's tooling. This layer adds them:
+#
+#   1. liburing.so.2 — the cardano-node binary is linked against it, but the
+#      base image never installs liburing2, so the node crash-loops on start:
+#        error while loading shared libraries: liburing.so.2: cannot open ...
+#
+#   2. cardano-cli — the base image has no cardano-cli, so the helper scripts
+#      (which `docker exec <container> cardano-cli ...`) fail with:
+#        exec: "cardano-cli": executable file not found in $PATH
+#      We bring it (and its full Nix store closure) over from the matching
+#      official cardano-node 11.0.1 image — the Leios node also reports 11.0.1.
+#
+#   3. CARDANO_NODE_SOCKET_PATH — the wrapper relies on this env being set in
+#      the container (it does not pass --socket-path). The base image omits it.
+
+# Stage that carries a version-matched cardano-cli and its Nix closure.
+FROM ghcr.io/intersectmbo/cardano-node:11.0.1 AS cli
+
+FROM ghcr.io/input-output-hk/ouroboros-leios/cardano-node-leios:main
+
+# cardano-cli is a Nix-built binary: the symlink in /usr/local/bin points into
+# /nix/store, and the binary needs its full closure (interpreter + libs) there.
+COPY --from=cli /nix /nix
+COPY --from=cli /usr/local/bin/cardano-cli /usr/local/bin/cardano-cli
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends liburing2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig
+
+# The helper scripts exec cardano-cli inside this container without passing
+# --socket-path, so it must find the node socket via the environment.
+ENV CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+
+# The Leios node opens its SQLite database at the relative path "leios.db" (it
+# does not honour LEIOS_DB_PATH), i.e. in its working directory. Point WORKDIR
+# at /leios so the side-loaded database that start-node.sh downloads from a relay
+# (bind-mounted at /leios by docker-compose, read-write) is the file it uses.
+RUN mkdir -p /leios
+WORKDIR /leios
