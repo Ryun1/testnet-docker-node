@@ -504,46 +504,9 @@ export NODE_PORT=$NODE_PORT
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 
-# Relay endpoints that serve a side-loadable leios.db snapshot (the SQLite
-# database plus its write-ahead log). Tried in order until one succeeds.
-leios_db_relays=(
-  "https://leios1-rel-a-1.play.dev.cardano.org"
-  "https://leios2-rel-b-1.play.dev.cardano.org"
-  "https://leios3-rel-c-1.play.dev.cardano.org"
-)
-
-# Side-load the Leios SQLite database from the first reachable relay into $1
-# (the host dir bind-mounted to /leios, which is the node's working directory).
-# The node opens this database read-write, so the files are given rw permissions.
-# Any stale -shm is removed so SQLite rebuilds it from the downloaded -wal. A
-# total failure is non-fatal: the node starts with an empty leios database.
-download_leios_db() {
-  local dest_dir=$1
-  mkdir -p "$dest_dir"
-  rm -f "$dest_dir"/leios.db "$dest_dir"/leios.db-wal "$dest_dir"/leios.db-shm
-
-  local relay
-  for relay in "${leios_db_relays[@]}"; do
-    echo -e "${CYAN}Side-loading leios.db from ${relay} ...${NC}"
-    if curl --silent --show-error --fail --location --max-time 600 \
-         -o "$dest_dir/leios.db" "${relay}/leios.db"; then
-      # The write-ahead log keeps the snapshot current; best-effort.
-      curl --silent --fail --location --max-time 600 \
-        -o "$dest_dir/leios.db-wal" "${relay}/leios.db-wal" \
-        || rm -f "$dest_dir/leios.db-wal"
-      # Make the database writable for the node (rw permissions).
-      chmod 0664 "$dest_dir"/leios.db* 2>/dev/null || true
-      chmod 0775 "$dest_dir" 2>/dev/null || true
-      echo -e "${GREEN}Side-loaded leios.db into ${dest_dir} (rw).${NC}"
-      return 0
-    fi
-    echo -e "${YELLOW}Relay ${relay} unavailable, trying next...${NC}"
-  done
-
-  echo -e "${YELLOW}Warning: could not side-load leios.db from any relay.${NC}"
-  echo -e "${YELLOW}The node will start with an empty leios database.${NC}"
-  return 1
-}
+# Leios database side-loading (leios_db_relays + download_leios_db) lives in a
+# shared helper so refresh-leios-db.sh can reuse the exact same logic.
+source "$project_root/scripts/helper/leios-db.sh"
 
 # Select the compose file for this node version.
 # The "leios-image" option builds a thin layer (Dockerfile.leios-image) over the

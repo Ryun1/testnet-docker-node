@@ -9,6 +9,9 @@ with different versions and across networks.
 
 **Docker node version choices:** `10.5.3`, `10.5.1`
 
+> Running a **Leios** node on **leiosnet** (Dijkstra era)? See
+> [Running a Leios node on leiosnet](./docs/leiosnet.md).
+
 ## Prerequisites
 
 ### `Docker`

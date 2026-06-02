@@ -216,10 +216,17 @@ cardano_cli() {
       prev_arg="$arg"
     done
     
+    # Only allocate a TTY when stdin is a terminal. Forcing -t breaks when
+    # output is redirected to a file/pipe ("the input device is not a TTY").
+    local tty_flags="-i"
+    if [ -t 0 ]; then
+      tty_flags="-ti"
+    fi
+
     if [ ${#network_flag_args[@]} -gt 0 ]; then
-      docker exec -ti "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
+      docker exec $tty_flags "$container_name" cardano-cli "${network_flag_args[@]}" "${converted_args[@]}"
     else
-      docker exec -ti "$container_name" cardano-cli "${converted_args[@]}"
+      docker exec $tty_flags "$container_name" cardano-cli "${converted_args[@]}"
     fi
   fi
 }

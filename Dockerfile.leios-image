@@ -30,8 +30,10 @@ FROM ghcr.io/input-output-hk/ouroboros-leios/cardano-node-leios:main
 COPY --from=cli /nix /nix
 COPY --from=cli /usr/local/bin/cardano-cli /usr/local/bin/cardano-cli
 
+# liburing2 (see above); curl + ca-certificates so the entrypoint can refresh
+# the side-loaded leios.db from the relays on every container start.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends liburing2 \
+    && apt-get install -y --no-install-recommends liburing2 curl ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && ldconfig
 
@@ -45,3 +47,11 @@ ENV CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
 # (bind-mounted at /leios by docker-compose, read-write) is the file it uses.
 RUN mkdir -p /leios
 WORKDIR /leios
+
+# Refresh the side-loaded leios.db on every container start (including Docker's
+# restart:always auto-restarts) so the LeiosCert crash self-heals instead of
+# crash-looping on a stale db. The entrypoint sources the same download helper
+# that start-node.sh / refresh-leios-db.sh use, then execs the node command.
+COPY scripts/helper/leios-db.sh /usr/local/bin/leios-db.sh
+COPY scripts/helper/leios-entrypoint.sh /usr/local/bin/leios-entrypoint.sh
+RUN chmod +x /usr/local/bin/leios-db.sh /usr/local/bin/leios-entrypoint.sh

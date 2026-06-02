@@ -34,8 +34,11 @@ services:
     environment:
       CARDANO_NODE_NETWORK_ID: ${NETWORK_ID}
     # Override the image's default entrypoint/command (an antithesis devnet
-    # bootstrap script) to run the node against the mounted leiosnet config.
-    entrypoint: []
+    # bootstrap script). Our entrypoint refreshes the side-loaded leios.db on
+    # every container start (including restart:always auto-restarts) so the
+    # LeiosCert crash self-heals, then execs the node command below.
+    entrypoint:
+      - /usr/local/bin/leios-entrypoint.sh
     command:
       - /usr/local/bin/cardano-node
       - run
