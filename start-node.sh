@@ -235,9 +235,9 @@ echo -e "${CYAN}Setting up Docker node...${NC}"
 # ----------------------------------------
 # Define available node versions per network
 # ----------------------------------------
-versions_sanchonet=( "10.7.0" "10.6.2" "10.5.4" )
-versions_preview=( "10.6.2" "10.5.4" )
-versions_preprod=( "10.6.2" "10.5.4" )
+versions_sanchonet=( "11.0.1" )
+versions_preview=( "11.0.1" )
+versions_preprod=( "11.0.1" "10.6.2" "10.5.4" )
 versions_mainnet=( "10.6.2" "10.5.4" )
 # ----------------------------------------
 
@@ -465,7 +465,7 @@ config_files=(
 )
 
 # add dijkstra-genesis.json for 10.6.2 and 10.7.0
-if [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
+if [ "$node_version" = "11.0.1" ] ||[ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
