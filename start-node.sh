@@ -132,7 +132,7 @@ select connection_type in "${connection_options[@]}"; do
 done
 
 # Define the list of available networks
-available_networks=("sanchonet" "preview" "preprod" "mainnet")
+available_networks=("sanchonet" "preview" "preprod" "mainnet" "leiosnet")
 
 
 # If user selected external node configuration
@@ -151,7 +151,7 @@ if [ "$connection_type" = "Configure connection to an external node via socket f
   if [ -z "${CARDANO_NODE_NETWORK_ID:-}" ]; then
     echo -e "${RED}Error: CARDANO_NODE_NETWORK_ID environment variable is not set.${NC}"
     echo -e "${YELLOW}Please set it before running this script:${NC}"
-    echo -e "${BLUE}  export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet${NC}"
+    echo -e "${BLUE}  export CARDANO_NODE_NETWORK_ID=1  # 1=preprod, 2=preview, 4=sanchonet, 5=leiosnet${NC}"
     exit 1
   fi
   
@@ -199,6 +199,7 @@ if [ "$connection_type" = "Configure connection to an external node via socket f
     1) network_name="preprod" ;;
     2) network_name="preview" ;;
     4) network_name="sanchonet" ;;
+    5) network_name="leiosnet" ;;
     *) network_name="unknown" ;;
   esac
   
@@ -239,6 +240,7 @@ versions_sanchonet=( "11.0.1" )
 versions_preview=( "11.0.1" )
 versions_preprod=( "11.0.1" "10.6.2" "10.5.4" )
 versions_mainnet=( "10.6.2" "10.5.4" )
+versions_leiosnet=( "leios-image" )
 # ----------------------------------------
 
 # Initialize variables to avoid unbound variable errors
@@ -314,10 +316,17 @@ assign_port_for_version() {
   # Convert version like "10.5.1" to a number for port offset
   # Remove dots and take modulo to get offset (0-99 range)
   local version_no_dots=$(echo "$version" | tr -d '.')
-  local version_num=$((10#$version_no_dots))  # Force base-10 interpretation
-  local offset=$((version_num % 100))
+  local offset
+  if [[ "$version_no_dots" =~ ^[0-9]+$ ]]; then
+    # Numeric version: derive a consistent offset from the digits
+    local version_num=$((10#$version_no_dots))  # Force base-10 interpretation
+    offset=$((version_num % 100))
+  else
+    # Non-numeric version label (e.g. "leios-image"): derive offset from a checksum
+    offset=$(( $(echo "$version" | cksum | cut -d' ' -f1) % 100 ))
+  fi
   local port=$((base_port + offset))
-  
+
   echo $port
 }
 
@@ -412,6 +421,8 @@ utilities_dir="$base_dir/utilities"
 # Base URL for node config files
 if [ "$network" = "sanchonet" ]; then
   config_base_url="https://raw.githubusercontent.com/Hornan7/SanchoNet-Tutorials/refs/heads/main/genesis/"
+elif [ "$network" = "leiosnet" ]; then
+  config_base_url="https://raw.githubusercontent.com/input-output-hk/cardano-playground/refs/heads/next-2026-05-15/docs/environments-pre/leios/"
 else
   config_base_url="https://book.play.dev.cardano.org/environments/$network/"
 fi
@@ -464,8 +475,8 @@ config_files=(
   "peer-snapshot.json"
 )
 
-# add dijkstra-genesis.json for 10.6.2 and 10.7.0
-if [ "$node_version" = "11.0.1" ] ||[ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ]; then
+# add dijkstra-genesis.json for 10.6.2, 10.7.0, 11.0.1 and all leiosnet versions
+if [ "$node_version" = "11.0.1" ] || [ "$node_version" = "10.6.2" ] || [ "$node_version" = "10.7.0" ] || [ "$network" = "leiosnet" ]; then
   config_files+=("dijkstra-genesis.json")
 fi
 
@@ -493,17 +504,42 @@ export NODE_PORT=$NODE_PORT
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
 
-# Substitute the variables in the docker-compose.yml file and start the Docker container
-echo -e "${CYAN}Starting the Docker container...${NC}"
+# Leios database side-loading (leios_db_relays + download_leios_db) lives in a
+# shared helper so refresh-leios-db.sh can reuse the exact same logic.
+source "$project_root/scripts/helper/leios-db.sh"
+
+# Select the compose file for this node version.
+# The "leios-image" option builds a thin layer (Dockerfile.leios-image) over the
+# prebuilt Leios node image published from the ouroboros-leios repo; all other
+# versions build the local Dockerfile.
+if [ "$node_version" = "leios-image" ]; then
+  compose_file="docker-compose.leios-image.yml"
+else
+  compose_file="docker-compose.yml"
+fi
+
 # Use docker compose (plugin) if available, fallback to docker-compose (standalone)
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-  envsubst < docker-compose.yml | docker compose -f - up -d --build
+  compose_cmd="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
-  envsubst < docker-compose.yml | docker-compose -f - up -d --build
+  compose_cmd="docker-compose"
 else
   echo -e "${RED}Error: Neither 'docker compose' nor 'docker-compose' is available${NC}"
   exit 1
 fi
+
+# For the Leios image, build the thin patch layer while pulling the latest
+# published base image ('main' tag) so updates are picked up on each run.
+if [ "$node_version" = "leios-image" ]; then
+  echo -e "${CYAN}Pulling and patching the latest Leios node image...${NC}"
+  envsubst < "$compose_file" | $compose_cmd -f - build --pull
+  # Side-load the leios database from a relay so the node starts from a snapshot.
+  download_leios_db "$node_dir/leios" || true
+fi
+
+# Substitute the variables in the compose file and start the Docker container
+echo -e "${CYAN}Starting the Docker container...${NC}"
+envsubst < "$compose_file" | $compose_cmd -f - up -d --build
 
 # Verify the container started successfully
 container_name="node-$network_normalized-$node_version-container"
@@ -525,13 +561,8 @@ if [ "$container_status" != "running" ]; then
 
   # Stop and remove the failed container
   echo -e "${YELLOW}Cleaning up failed container...${NC}"
-  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
-    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
-      envsubst < docker-compose.yml | docker compose -f - down 2>/dev/null || true
-  elif command -v docker-compose >/dev/null 2>&1; then
-    NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
-      envsubst < docker-compose.yml | docker-compose -f - down 2>/dev/null || true
-  fi
+  NETWORK=$network_normalized NODE_VERSION=$node_version NODE_PORT=$NODE_PORT NETWORK_ID=$NETWORK_ID \
+    envsubst < "$compose_file" | $compose_cmd -f - down 2>/dev/null || true
   docker rm -f "$container_name" 2>/dev/null || true
 
   echo -e "${RED}Container has been stopped and removed. Please check the logs above for details.${NC}"
