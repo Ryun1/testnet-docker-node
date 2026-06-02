@@ -485,10 +485,14 @@ done
 # Return to the base directory
 cd "$base_dir" || exit
 
+# Calculate socat bridge port (node socket -> TCP for host access on macOS)
+SOCAT_PORT=$((NODE_PORT + 10000))
+
 # Export environment variables for use in docker-compose.yml
 export NETWORK=$network_normalized
 export NODE_VERSION=$node_version
 export NODE_PORT=$NODE_PORT
+export SOCAT_PORT=$SOCAT_PORT
 
 # Get the network magic from the shelley-genesis.json file and pass it into the container
 export NETWORK_ID=$(jq -r '.networkMagic' "$config_dir/shelley-genesis.json")
@@ -536,6 +540,48 @@ if [ "$container_status" != "running" ]; then
 
   echo -e "${RED}Container has been stopped and removed. Please check the logs above for details.${NC}"
   exit 1
+fi
+
+# Start host-side socat bridge (macOS only - unix sockets don't work across Docker VM boundary)
+host_socket_path="$node_dir/node.socket"
+if [ "$(uname -s)" = "Darwin" ]; then
+  if command -v socat >/dev/null 2>&1; then
+    # Kill any existing socat for this socket
+    if [ -f "$node_dir/socat.pid" ]; then
+      old_pid=$(cat "$node_dir/socat.pid" 2>/dev/null || true)
+      if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+        kill "$old_pid" 2>/dev/null || true
+      fi
+      rm -f "$node_dir/socat.pid"
+    fi
+    rm -f "$host_socket_path"
+
+    echo -e "${CYAN}Starting host-side socket bridge (socat)...${NC}"
+    echo -e "${BLUE}Bridging TCP port $SOCAT_PORT -> $host_socket_path${NC}"
+    socat UNIX-LISTEN:"$host_socket_path",fork,reuseaddr TCP:127.0.0.1:"$SOCAT_PORT" &
+    echo $! > "$node_dir/socat.pid"
+
+    echo -e "${GREEN}Host socket bridge started.${NC}"
+    echo -e "${BLUE}Use the node socket from any script:${NC}"
+    echo -e "${YELLOW}  export CARDANO_NODE_SOCKET_PATH=\"$host_socket_path\"${NC}"
+    echo -e "${YELLOW}  export CARDANO_NODE_NETWORK_ID=\"$NETWORK_ID\"${NC}"
+    echo
+  else
+    echo -e "${YELLOW}Note: 'socat' is not installed. On macOS, the container socket cannot be used directly.${NC}"
+    echo -e "${YELLOW}Install socat to enable transparent host-side socket access:${NC}"
+    echo -e "${BLUE}  brew install socat${NC}"
+    echo -e "${YELLOW}The socat sidecar is running inside Docker on TCP port $SOCAT_PORT.${NC}"
+    echo -e "${YELLOW}You can manually bridge it:${NC}"
+    echo -e "${BLUE}  socat UNIX-LISTEN:\"$host_socket_path\",fork,reuseaddr TCP:127.0.0.1:$SOCAT_PORT &${NC}"
+    echo
+  fi
+else
+  # Linux: bind-mounted unix sockets work directly
+  echo -e "${GREEN}Socket available at: $node_dir/ipc/node.socket${NC}"
+  echo -e "${BLUE}Use the node socket from any script:${NC}"
+  echo -e "${YELLOW}  export CARDANO_NODE_SOCKET_PATH=\"$node_dir/ipc/node.socket\"${NC}"
+  echo -e "${YELLOW}  export CARDANO_NODE_NETWORK_ID=\"$NETWORK_ID\"${NC}"
+  echo
 fi
 
 # Forward the logs to the terminal

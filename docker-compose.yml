@@ -27,6 +27,22 @@ services:
         max-size: "200k"
         max-file: "10"
 
+  cardano-node-socat-${NETWORK}-${NODE_VERSION}:
+    container_name: node-${NETWORK}-${NODE_VERSION}-socat
+    image: alpine/socat
+    ports:
+      - "127.0.0.1:${SOCAT_PORT}:${SOCAT_PORT}"
+    depends_on:
+      - cardano-node-${NETWORK}-${NODE_VERSION}
+    labels:
+      - "managed-by=testnet-docker-node"
+    volumes:
+      - ./node-${NETWORK}-${NODE_VERSION}/ipc:/ipc
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while [ ! -S /ipc/node.socket ]; do sleep 1; done; exec socat TCP-LISTEN:${SOCAT_PORT},fork,reuseaddr UNIX-CONNECT:/ipc/node.socket"
+    restart: always
+
 volumes:
   node-db:
   node-ipc:

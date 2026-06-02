@@ -85,9 +85,9 @@ check_cardano_cli_version() {
       container_name="$CARDANO_CONTAINER_NAME_OVERRIDE"
     else
       # Only try to get container name if there's exactly one running container (non-interactive)
-      local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+      local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | grep -v -- '-socat$' | wc -l | tr -d ' ')
       if [ "$running_count" -eq 1 ]; then
-        container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | head -n 1)
+        container_name=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | grep -v -- '-socat$' | head -n 1)
       fi
     fi
     
@@ -195,7 +195,7 @@ cardano_cli() {
     
     # Display version info for the selected container
     # Only show if multiple containers are running (selection happened) to avoid duplicate when single container
-    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | wc -l | tr -d ' ')
+    local running_count=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | grep -v -- '-socat$' | wc -l | tr -d ' ')
     if [ "$running_count" -gt 1 ]; then
       display_version_info "$container_name"
     fi

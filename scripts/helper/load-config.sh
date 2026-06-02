@@ -38,7 +38,7 @@ docker_compose_file="$base_dir/docker-compose.yml"
 # Get running containers
 running_containers=""
 if command -v docker &> /dev/null; then
-  running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' || true)
+  running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '^node-' | grep -v -- '-socat$' || true)
 fi
 
 # Safety check: If docker-compose.yml exists but no containers are running and no socket is set,
