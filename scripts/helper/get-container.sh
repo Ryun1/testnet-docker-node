@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -euo pipefail
+set -euo pipefail
 
 # Get the list of running containers
 # Supports CARDANO_CONTAINER_NAME_OVERRIDE environment variable
@@ -24,15 +24,22 @@ IFS=$'\n' read -r -d '' -a running_containers <<< "$running_containers"
 
 # Determine which container to use
 if [ ${#running_containers[@]} -eq 1 ]; then
-  echo "${running_containers[0]}"
+  # Single container: auto-select and set CARDANO_CONTAINER_NAME for consistency
+  container_name="${running_containers[0]}"
+  export CARDANO_CONTAINER_NAME="$container_name"
+  echo "$container_name"
 elif [ ${#running_containers[@]} -gt 1 ]; then
   # If running non-interactively (no TTY), use first container or fail
   if [ ! -t 0 ]; then
-    echo "Warning: Multiple containers running but no TTY available. Using first container: ${running_containers[0]}" >&2
-    echo "${running_containers[0]}"
+    container_name="${running_containers[0]}"
+    echo "Warning: Multiple containers running but no TTY available. Using first container: $container_name" >&2
+    export CARDANO_CONTAINER_NAME="$container_name"
+    echo "$container_name"
   else
     select container_name in "${running_containers[@]}"; do
       if [ -n "$container_name" ]; then
+        # Set environment variable so subsequent calls use this selection
+        export CARDANO_CONTAINER_NAME="$container_name"
         echo "$container_name"
         break
       else
