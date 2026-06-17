@@ -455,7 +455,7 @@ create_dir "$utilities_dir"
 
 # List of JSON files to download
 config_files=(
-  "config.json"
+  # "config.json"
   "topology.json"
   "byron-genesis.json"
   "shelley-genesis.json"

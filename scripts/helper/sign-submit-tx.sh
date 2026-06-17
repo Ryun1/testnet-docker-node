@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-TRANSACTION_FILE="treasury-contract"
+TRANSACTION_FILE="out-transaction"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Get the script's directory and project root

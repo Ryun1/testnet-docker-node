@@ -52,6 +52,7 @@ echo "Previous Hardfork GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 echo "Creating and submitting hardfork governance action."
 
 cardano_cli conway governance action create-hardfork \
+  --testnet \
   --governance-action-deposit $(cardano_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \

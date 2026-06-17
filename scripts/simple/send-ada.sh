@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-LOVELACE_AMOUNT=10000000
-ADDRESS="addr_test1wqft2yqkp8wj5k5k7dy9725kxkcd4ep4ycp5uczuqtt3vqcgh63dt"
+LOVELACE_AMOUNT=1234000000
+ADDRESS="addr_test1qzu3qq3q0a52m6eucx2zqfpt42wwpgjsa02ktelpqs2qy60n5r7m06x7a0pnmx9ftnt7s22fscuknsdmaalfr9w8mjaq5eluy8"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Get the script's directory and project root

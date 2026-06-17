@@ -1,8 +1,10 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # ~~~~~~~~~~~~ CHANGE THIS ~~~~~~~~~~~~
-METADATA_URL="ipfs://bafkreia5vseqm3hqmds45gje4szvekwkzd4mebzeepbh2cdlr3krxcj2ou"
-METADATA_HASH="dfa2df398319b48e80a2caf02f4165bf12b6689d0ed57eee5e13dfa94857ed71"
+METADATA_URL="https://raw.githubusercontent.com/Ryun1/metadata/refs/heads/main/cip108/cost-model.jsonld"
+METADATA_HASH="a0cb1774a243ee15a83516a2128062127b2d4032ecd290666e1439475dbf846e"
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Get the script's directory and project root
@@ -17,7 +19,8 @@ tx_cert_path="$tx_path_stub.action"
 tx_unsigned_path="$tx_path_stub.unsigned"
 tx_signed_path="$tx_path_stub.signed"
 
-guardrails_script_path="./config/guardrails-script.plutus"
+utils_dir="$project_root/utilities"
+guardrails_script_path="$utils_dir/guardrails-script.plutus"
 
 # Get the script's directory
 # Source the cardano-cli wrapper
@@ -56,14 +59,14 @@ PREV_GA_INDEX=$(echo "$GOV_STATE" | jq -r '.PParamUpdate.govActionIx')
 echo "Previous Protocol Param Change GA: $PREV_GA_TX_HASH#$PREV_GA_INDEX"
 
 cardano_cli conway governance action create-protocol-parameters-update \
+  --testnet \
   --governance-action-deposit $(cardano_cli conway query gov-state | jq -r '.currentPParams.govActionDeposit') \
   --deposit-return-stake-verification-key-file $keys_dir/stake.vkey \
   --anchor-url "$METADATA_URL" \
   --anchor-data-hash "$METADATA_HASH" \
   --check-anchor-data \
   --constitution-script-hash $SCRIPT_HASH \
-  --max-tx-execution-units "(10000000000, 16500000)" \
-  --max-block-execution-units "(20000000000, 72000000)" \
+  --cost-model-file "$utils_dir/new-cost-model-collapsed-values.json" \
   --prev-governance-action-tx-id "$PREV_GA_TX_HASH" \
   --prev-governance-action-index "$PREV_GA_INDEX" \
   --out-file "$tx_cert_path"
